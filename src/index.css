@@ -1,0 +1,158 @@
+:root {
+  --bs-primary: #6366f1;
+  --bs-primary-rgb: 99, 102, 241;
+  --bs-primary-hover: #5856eb;
+  --bs-primary-active: #4c46d6;
+  --bs-primary-light: #e0e7ff;
+  --bs-primary-dark: #4338ca;
+  
+  --indigo-50: #eef2ff;
+  --indigo-100: #e0e7ff;
+  --indigo-200: #c7d2fe;
+  --indigo-300: #a5b4fc;
+  --indigo-400: #818cf8;
+  --indigo-500: #6366f1;
+  --indigo-600: #5856eb;
+  --indigo-700: #4c46d6;
+  --indigo-800: #4338ca;
+  --indigo-900: #3730a3;
+
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+.btn-primary {
+  background-color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+  color: white !important;
+}
+
+.btn-primary:hover {
+  background-color: var(--bs-primary-hover) !important;
+  border-color: var(--bs-primary-hover) !important;
+  color: white !important;
+}
+
+.btn-primary:active,
+.btn-primary.active {
+  background-color: var(--bs-primary-active) !important;
+  border-color: var(--bs-primary-active) !important;
+  color: white !important;
+}
+
+.btn-outline-primary {
+  color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+  background-color: transparent !important;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--bs-primary) !important;
+  border-color: var(--bs-primary) !important;
+  color: white !important;
+}
+
+.btn-outline-primary:active,
+.btn-outline-primary.active {
+  background-color: var(--bs-primary-active) !important;
+  border-color: var(--bs-primary-active) !important;
+  color: white !important;
+}
+
+/* Enhanced button styling */
+.btn-light.text-primary {
+  background-color: white !important;
+}
+
+.btn-light.text-primary:hover {
+    background-color: none;
+    border-color: transparent;
+}
+
+/* Navbar styling with indigo */
+.bg-primary {
+  background-color: var(--bs-primary) !important;
+}
+
+/* Fix navbar brand hover and active states */
+.navbar-dark .navbar-brand {
+  color: white;
+  transition: all 0.2s ease;
+}
+
+/* Badge styling */
+.badge.bg-primary {
+  background-color: var(--bs-primary) !important;
+}
+
+/* Custom hover effects */
+.hover-shadow {
+  transition: all 0.2s ease-in-out;
+}
+
+.hover-shadow:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* transitions for all interactive elements */
+.btn, .card, .form-control, .badge {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus states */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--indigo-300);
+  box-shadow: 0 0 0 0.25rem rgba(99, 102, 241, 0.25);
+}
+
+/* Link hover effects */
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.2s ease-in-out;
+}
+
+a:hover {
+  color: var(--bs-primary);
+}
+
+/* Spinner color */
+.spinner-border-primary,
+.text-primary .spinner-border {
+  color: var(--bs-primary) !important;
+}
+
+/* Navbar search input focus styling */
+.navbar .input-group .form-control:focus {
+  border-color: #dee2e6 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Dropdown menu styling */
+.dropdown-item:focus, 
+.dropdown-item:active {
+  background-color: transparent !important;
+  color: var(--bs-primary) !important;
+}
+
+.dropdown-item.text-danger:focus,
+.dropdown-item.text-danger:active {
+  background-color: transparent !important;
+  color: #dc3545 !important;
+}
