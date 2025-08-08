@@ -2,7 +2,7 @@
 
 Submitted by: **Minh Hoang Ngo**
 
-This web app: **Allow users to create post, comment and rate the post. This web app inspired by reddit community forum where user can post content and let anonymous to comment**
+This web app: **Allow users to create post, comment and rate the post. This web app inspired by reddit community forum where user can post content and let anonymous to comment. This web app using ReactJS framework with bootstrap CSS and Supabase for database**
 
 Time spent: **12** hours spent in total
 
