@@ -16,11 +16,11 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Router>
       <Routes>
-        <Route path="/" element={<App />}>
+        <Route path="/purpleit/" element={<App />}>
           <Route index element={<HomePage />} />
-          <Route path="/create" element={<CreatePage />} />
-          <Route path="/edit/:user_id" element={<EditPage />} />
-          <Route path="/:user_id" element={<DetailPage />} />
+          <Route path="/purpleit/create" element={<CreatePage />} />
+          <Route path="/purpleit/edit/:user_id" element={<EditPage />} />
+          <Route path="/purpleit/:user_id" element={<DetailPage />} />
         </Route>
       </Routes>
     </Router>

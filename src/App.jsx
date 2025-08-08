@@ -9,7 +9,7 @@ const App = () => {
     <div className="min-vh-100 bg-light">
       <nav className="navbar navbar-expand-lg navbar-dark bg-primary sticky-top py-3">
         <div className="container-fluid">
-          <Link className="navbar-brand fw-bold m-0" to="/">
+          <Link className="navbar-brand fw-bold m-0" to="/purpleit/">
             p/webdev
           </Link>
           
@@ -31,7 +31,7 @@ const App = () => {
           <div className="navbar-nav flex-row">
             <Link 
               className="btn btn-light text-primary fw-semibold" 
-              to="/create">
+              to="/purpleit/create">
               <i className="bi bi-plus-circle me-2"></i>Create Post
             </Link>
           </div>

@@ -46,7 +46,7 @@ const CreatePage = () => {
       });
 
       alert("Post created successfully!");
-      navigate(`/${data[0].user_id}`);
+      navigate(`/purpleit/${data[0].user_id}`);
     } catch (error) {
       console.error('Error creating post:', error);
       alert("Error creating post. Please try again.");
@@ -143,7 +143,7 @@ const CreatePage = () => {
                   <button 
                     type="button" 
                     className="btn btn-outline-secondary me-md-2"
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/purpleit/')}
                     disabled={isLoading}
                   >
                     <i className="bi bi-x-circle me-2"></i>Cancel

@@ -75,7 +75,7 @@ const EditPage = () => {
       if (error) throw error;
 
       alert("Post updated successfully!");
-      navigate(`/${params.user_id}`);
+      navigate(`/purpleit/${params.user_id}`);
     } catch (error) {
       console.error('Error updating post:', error);
       alert("Error updating post. Please try again.");
@@ -108,7 +108,7 @@ const EditPage = () => {
       <div className="container py-4">
         <div className="text-center">
           <h3>Post not found</h3>
-          <Link to="/" className="btn btn-primary">Back to Home</Link>
+          <Link to="/purpleit/" className="btn btn-primary">Back to Home</Link>
         </div>
       </div>
     );
@@ -195,7 +195,7 @@ const EditPage = () => {
                   <button 
                     type="button" 
                     className="btn btn-outline-secondary me-md-2"
-                    onClick={() => navigate(`/${params.user_id}`)}
+                    onClick={() => navigate(`/purpleit/${params.user_id}`)}
                     disabled={isUpdating}
                   >
                     <i className="bi bi-x-circle me-2"></i>Cancel

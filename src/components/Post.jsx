@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 const Post = ({ user_id, time, title, upvotes, isEdited }) => {
   return (
-    <Link to={`/${user_id}`} className="text-decoration-none">
+    <Link to={`/purpleit/${user_id}`} className="text-decoration-none">
       <div className="card mb-3 shadow-sm hover-shadow transition">
         <div className="card-body">
           <div className="d-flex justify-content-between align-items-start mb-2">

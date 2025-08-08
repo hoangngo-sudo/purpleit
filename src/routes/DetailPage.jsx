@@ -98,7 +98,7 @@ const DetailPage = () => {
       if (error) throw error;
 
       alert("Post deleted successfully!");
-      navigate('/', {replace: true});
+      navigate('/purpleit/', {replace: true});
     } catch (error) {
       console.error('Error deleting post:', error);
       alert("Error deleting post. Please try again.");
@@ -185,7 +185,7 @@ const DetailPage = () => {
         <div className="text-center">
           <div className="mb-3"></div>
           <h3>Post not found</h3>
-          <Link to="/" className="btn btn-primary">Back to Home</Link>
+          <Link to="/purpleit/" className="btn btn-primary">Back to Home</Link>
         </div>
       </div>
     );
@@ -256,7 +256,7 @@ const DetailPage = () => {
       <div className="row">
         <div className="col-12">
           {/* Back Button */}
-          <Link to="/" className="btn btn-outline-secondary mb-3">
+          <Link to="/purpleit/" className="btn btn-outline-secondary mb-3">
             <i className="bi bi-arrow-left me-2"></i>Back to Posts
           </Link>
 
@@ -275,7 +275,7 @@ const DetailPage = () => {
                   </button>
                   <ul className="dropdown-menu">
                     <li>
-                      <Link className="dropdown-item" to={`/edit/${params.user_id}`}>
+                      <Link className="dropdown-item" to={`/purpleit/edit/${params.user_id}`}>
                         <i className="bi bi-pencil me-2"></i>Edit Post
                       </Link>
                     </li>

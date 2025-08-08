@@ -169,7 +169,7 @@ const HomePage = () => {
                 }
               </p>
               {!searchInput && (
-                <Link to="/create" className="btn btn-primary">
+                <Link to="/purpleit/create" className="btn btn-primary">
                   <i className="bi bi-plus-circle me-2"></i>Create First Post
                 </Link>
               )}
