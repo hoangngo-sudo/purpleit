@@ -1,6 +1,6 @@
-# Web Development Final Project - *purpleit*
+# *purpleit* project
 
-Submitted by: **Minh Hoang Ngo**
+Submitted by: **Hoang Minh Ngo**
 
 This web app: **Allow users to create post, comment and rate the post. This web app inspired by reddit community forum where user can post content and let anonymous to comment. This web app using ReactJS framework with bootstrap CSS and Supabase for database**
 
@@ -72,7 +72,7 @@ GIF created with [ScreenToGif](https://www.screentogif.com/)
 
 ## License
 
-    Copyright 2025 Minh Hoang Ngo
+    Copyright 2025 Hoang Minh Ngo
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
