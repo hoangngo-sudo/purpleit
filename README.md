@@ -1,14 +1,12 @@
 # *purpleit* project
 
-Submitted by: **Hoang Minh Ngo**
-
 This web app: **Allow users to create post, comment and rate the post. This web app inspired by reddit community forum where user can post content and let anonymous to comment. This web app using ReactJS framework with bootstrap CSS and Supabase for database**
 
 Time spent: **12** hours spent in total
 
-## Required Features
+## Features
 
-The following **required** functionality is completed:
+Here are some of the following **required** functionality that is completed:
 
 - [X] **Web app includes a create form that allows the user to create posts**
 
@@ -45,22 +43,30 @@ The following **required** functionality is completed:
   - After a user creates a new post, they can go back and edit the post
   - A previously created post can be deleted from its post page
 
-The following **optional** features are implemented:
+- [X] **Web app implements pseudo-authentication**
 
-- [X] Web app implements pseudo-authentication
   - Users can only edit and delete posts or delete comments by entering the secret key, which is set by the user during post creation
   - Only the original user author of a post can update or delete it
-- [ ] Users can repost a previous post by referencing its post ID. On the post page of the new post
+
+- [X] **Web app displays a loading animation whenever data is being fetched**
+
+The following features are in road map and wish to be implemented:
+
+- [ ] **Users can repost a previous post by referencing its post ID. On the post page of the new post**
+      
   - Users can repost a previous post by referencing its post ID
   - On the post page of the new post, the referenced post is displayed and linked, creating a thread
-- [ ] Users can customize the interface
+    
+- [ ] **Users can customize the interface**
+      
   - e.g., selecting the color scheme or showing the content and image of each post on the home feed
-- [ ] Users can add more characterics to their posts
+    
+- [ ] **Users can add more characterics to their posts**
+      
   - Users can share and view web videos
   - Users can set flags such as "Question" or "Opinion" while creating a post
   - Users can filter posts by flags on the home feed
   - Users can upload images directly from their local machine as an image file
-- [X] Web app displays a loading animation whenever data is being fetched
 
 ## Video Walkthrough
 
