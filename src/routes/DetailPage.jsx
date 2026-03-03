@@ -1,24 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../utils/client';
+import { formatTime, isEdited, isPostOwner } from '../utils/helpers';
+import { useToast } from '../contexts/useToast';
+import { useAuth } from '../contexts/useAuth';
 
 const DetailPage = () => {
   const params = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { user, profile } = useAuth();
   const [post, setPost] = useState(null);
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpvoting, setIsUpvoting] = useState(false);
+  const [voted, setVoted] = useState(false);
   const [isCommenting, setIsCommenting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [secretKey, setSecretKey] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect (() => {
-    fetchPost().catch(console.error);
-    fetchComments().catch(console.error);
-  }, [params.user_id]);
+  useEffect(() => {
+    fetchPost();
+    fetchComments();
+    fetchVotedState();
+  }, [params.user_id, user]);
 
   const fetchPost = async () => {
     setIsLoading(true);
@@ -44,7 +50,7 @@ const DetailPage = () => {
     try {
       const {data, error} = await supabase
         .from('comments')
-        .select('id, comment, created_at, post_id')
+        .select('id, comment, created_at, post_id, profiles!comments_author_id_fkey(id, username, avatar_url)')
         .eq('post_id', params.user_id)
         .order('created_at', { ascending: false });
 
@@ -55,37 +61,56 @@ const DetailPage = () => {
     }
   };
 
-  const increaseUpvote = async () => {
-    if (isUpvoting) return;
-    setIsUpvoting(true);
-    const newUpvotes = (post?.upvotes ?? 0) + 1;
+  const fetchVotedState = async () => {
+    if (!user) { setVoted(false); return; }
+    try {
+      const { data } = await supabase
+        .from('upvotes')
+        .select('post_id')
+        .eq('user_id', user.id)
+        .eq('post_id', params.user_id)
+        .maybeSingle();
+      setVoted(!!data);
+    } catch { setVoted(false); }
+  };
 
-    setPost((p) => ({ ...(p || {}), upvotes: newUpvotes }));
+  const toggleUpvote = async () => {
+    if (isUpvoting) return;
+    if (!user) {
+      showToast({ message: 'Log in to upvote posts.', type: 'warning' });
+      return;
+    }
+    setIsUpvoting(true);
+
+    // Optimistic update
+    const wasVoted = voted;
+    const optimisticCount = (post?.upvotes ?? 0) + (wasVoted ? -1 : 1);
+    setVoted(!wasVoted);
+    setPost((p) => ({ ...p, upvotes: optimisticCount }));
 
     try {
-      await supabase
-        .from('posts')
-        .update({ upvotes: newUpvotes })
-        .eq('user_id', params.user_id);
+      const { data, error } = await supabase.rpc('toggle_upvote', { p_post_id: params.user_id });
+      if (error) throw error;
+      // Use server-authoritative values
+      setVoted(data.has_upvoted);
+      setPost((p) => ({ ...p, upvotes: data.upvotes }));
+    } catch (err) {
+      console.error('Upvote error:', err);
+      // Revert optimistic update
+      setVoted(wasVoted);
+      setPost((p) => ({ ...p, upvotes: (p?.upvotes ?? 0) + (wasVoted ? 1 : -1) }));
+      showToast({ message: 'Could not update vote. Please try again.', type: 'error' });
     } finally {
       setIsUpvoting(false);
     }
   };
 
-  const handleDeleteClick = () => {
-    setShowDeleteModal(true);
-  };
-
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
-    setSecretKey('');
   };
 
   const deletePost = async () => {
-    if (!post || secretKey !== post.secret_key) {
-      alert("Invalid secret key. Please try again.");
-      return;
-    }
+    if (!post) return;
 
     setIsDeleting(true);
 
@@ -97,19 +122,15 @@ const DetailPage = () => {
 
       if (error) throw error;
 
-      alert("Post deleted successfully!");
+      showToast({ message: 'Post deleted successfully!', type: 'success' });
       navigate('/purpleit/', {replace: true});
     } catch (error) {
       console.error('Error deleting post:', error);
-      alert("Error deleting post. Please try again.");
+      showToast({ message: 'Error deleting post. Please try again.', type: 'error' });
     } finally {
       setIsDeleting(false);
       closeDeleteModal();
     }
-  };
-
-  const handleChange = (e) => {
-    setComment(e.target.value);
   };
 
   const createComment = async () => {
@@ -120,52 +141,34 @@ const DetailPage = () => {
     try {
       const { data, error } = await supabase
         .from('comments')
-        .insert({ post_id: params.user_id, comment: comment.trim() })
+        .insert({
+          post_id: params.user_id,
+          comment: comment.trim(),
+          author_id: user?.id || null
+        })
         .select();
       
       if (error) throw error;
       
+      // Attach the current user's profile so it renders immediately
+      const newComment = {
+        ...data[0],
+        profiles: profile
+          ? { id: profile.id, username: profile.username, avatar_url: profile.avatar_url }
+          : null,
+      };
       // Add new comment to the beginning of the array
-      setComments([data[0], ...comments]);
+      setComments([newComment, ...comments]);
       setComment("");
     } catch (error) {
       console.error('Error creating comment:', error);
-      alert("Error adding comment. Please try again.");
+      showToast({ message: 'Error adding comment. Please try again.', type: 'error' });
     } finally {
       setIsCommenting(false);
     }
   };
 
-  const formatTime = (time) => {
-    // Calculate time difference in seconds
-    let postedTime = (Date.now() - Date.parse(time))/1000;
-    
-    // Handle non-positive time difference simply
-    if (postedTime <= 0) {
-      return "just now";
-    }
-    
-    if (postedTime < 60)
-      return `${Math.floor(postedTime)} seconds ago`;
-    if (postedTime < 60*60)
-      return `${Math.floor(postedTime/60)} minutes ago`;
-    if (postedTime < 60*60*24)
-      return `${Math.floor(postedTime/(60*60))} hours ago`;
-    if (postedTime < 60*60*24*7)
-      return `${Math.floor(postedTime/(60*60*24))} days ago`;
-    if (postedTime < 60*60*24*30)
-      return `${Math.floor(postedTime/(60*60*24*7))} weeks ago`;
-    if (postedTime < 60*60*24*7*52)
-      return `${Math.floor(postedTime/(60*60*24*30))} months ago`;
-    
-    return `${Math.floor(postedTime/(60*60*24*7*52))} years ago`;
-  };
 
-  const isEdited = (post) => {
-    // Check if updated_at exists and is different from created_at
-    return post.updated_at && 
-      new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
-  };
 
   if (isLoading) {
     return (
@@ -183,9 +186,8 @@ const DetailPage = () => {
     return (
       <div className="container py-4">
         <div className="text-center">
-          <div className="mb-3"></div>
-          <h3>Post not found</h3>
-          <Link to="/purpleit/" className="btn btn-primary">Back to Home</Link>
+          <h3 className="mb-3">404: What are you looking at?</h3>
+          <Link to="/purpleit/" className="btn btn-primary gap-3"><i className="bi bi-arrow-left me-2"></i>Back to Home</Link>
         </div>
       </div>
     );
@@ -203,25 +205,6 @@ const DetailPage = () => {
               </div>
               <div className="modal-body">
                 <p>Are you sure you want to delete this post? This action cannot be undone.</p>
-                
-                {/* Authentication Section */}
-                <div className="bg-danger bg-opacity-10 border border-danger rounded p-3 mb-3">
-                  <h6 className="fw-semibold text-danger mb-2">
-                    Authentication Required
-                  </h6>
-                  <label htmlFor="deleteSecretKey" className="form-label text-danger">
-                    Enter your secret key to delete this post
-                  </label>
-                  <input
-                    type="password"
-                    className="form-control border-danger"
-                    id="deleteSecretKey"
-                    value={secretKey}
-                    onChange={(e) => setSecretKey(e.target.value)}
-                    placeholder="Secret key"
-                    required
-                  />
-                </div>
               </div>
               <div className="modal-footer">
                 <button 
@@ -236,7 +219,7 @@ const DetailPage = () => {
                   type="button" 
                   className="btn btn-danger" 
                   onClick={deletePost}
-                  disabled={isDeleting || !secretKey.trim()}
+                  disabled={isDeleting}
                 >
                   {isDeleting ? (
                     <>
@@ -261,7 +244,7 @@ const DetailPage = () => {
           </Link>
 
           {/* Post Card */}
-          <div className="card shadow">
+          <div className="card">
             <div className="card-body">
               {/* Post Meta */}
               <div className="d-flex justify-content-between align-items-center mb-3">
@@ -270,23 +253,41 @@ const DetailPage = () => {
                   {isEdited(post) && <span className="ms-1 fst-italic">(edited)</span>}
                 </small>
                 <div className="dropdown">
-                  <button className="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    <i className="bi bi-three-dots"></i>
+                  <button className="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    More
                   </button>
                   <ul className="dropdown-menu">
                     <li>
-                      <Link className="dropdown-item" to={`/purpleit/edit/${params.user_id}`}>
-                        <i className="bi bi-pencil me-2"></i>Edit Post
-                      </Link>
+                      {isPostOwner(post, user) ? (
+                        <Link className="dropdown-item" to={`/purpleit/edit/${params.user_id}`}>
+                          <i className="bi bi-pencil me-2"></i>Edit Post
+                        </Link>
+                      ) : (
+                        <span
+                          className="dropdown-item disabled"
+                          title={user ? 'Not your post' : 'Log in to manage posts'}
+                        >
+                          <i className="bi bi-pencil me-2"></i>Edit Post
+                        </span>
+                      )}
                     </li>
                     <li><hr className="dropdown-divider" /></li>
                     <li>
-                      <button 
-                        className="dropdown-item text-danger" 
-                        onClick={handleDeleteClick}
-                      >
-                        <i className="bi bi-trash3 me-2"></i>Delete Post
-                      </button>
+                      {isPostOwner(post, user) ? (
+                        <button 
+                          className="dropdown-item text-danger" 
+                          onClick={() => setShowDeleteModal(true)}
+                        >
+                          <i className="bi bi-trash3 me-2"></i>Delete Post
+                        </button>
+                      ) : (
+                        <span
+                          className="dropdown-item disabled text-muted"
+                          title={user ? 'Not your post' : 'Log in to manage posts'}
+                        >
+                          <i className="bi bi-trash3 me-2"></i>Delete Post
+                        </span>
+                      )}
                     </li>
                   </ul>
                 </div>
@@ -305,12 +306,12 @@ const DetailPage = () => {
               )}
 
               {/* Post Image */}
-              {post.imageUrl && post.imageUrl !== "" && (
+              {post.imageUrl && (
                 <div className="mb-4 text-center">
                   <img 
                     src={post.imageUrl} 
                     alt="Post content" 
-                    className="img-fluid rounded shadow-sm"
+                    className="img-fluid rounded"
                     style={{maxHeight: '400px'}}
                     onError={(e) => {
                       e.target.style.display = 'none';
@@ -322,38 +323,36 @@ const DetailPage = () => {
               {/* Actions */}
               <div className="d-flex justify-content-between align-items-center mb-4">
                 <button 
-                  className={`btn ${isUpvoting ? 'btn-primary' : 'btn-outline-primary'}`}
-                  onClick={increaseUpvote}
+                  className={`btn ${voted ? 'btn-success' : isUpvoting ? 'btn-primary' : 'btn-outline-primary'}`}
+                  onClick={toggleUpvote}
                   disabled={isUpvoting}
                 >
                   {isUpvoting ? (
                     <span className="spinner-border spinner-border-sm me-2"></span>
                   ) : (
-                    <i className="bi bi-arrow-up me-1"></i>
+                    <i className={`me-1 ${voted ? 'bi bi-arrow-up-circle-fill' : 'bi bi-arrow-up'}`}></i>
                   )}
                   {post.upvotes} {post.upvotes === 1 ? 'upvote' : 'upvotes'}
                 </button>
               </div>
 
               {/* Comments Section */}
-              <div className="border-top pt-4">
+              <div>
                 <h5 className="mb-3">
-                  <i className="bi bi-chat-dots me-2"></i>
-                  Comments ({comments.length})
+                  {comments.length} Comment{comments.length !== 1 ? 's' : ''}
                 </h5>
                 
                 {/* Add Comment - Styled like CreatePage */}
-                <div className="mb-4">
+                <div className="mb-1">
                   <textarea 
                     className="form-control" 
                     id="comment"
                     rows="3" 
                     placeholder="Write your comment here..." 
                     value={comment} 
-                    onChange={handleChange}
+                    onChange={(e) => setComment(e.target.value)}
                   ></textarea>
-                  <div className="form-text mb-3"></div>
-                  <div className="d-grid gap-2 d-md-flex justify-content-md-end">
+                  <div className="d-grid gap-1 d-md-flex justify-content-md-end mt-3">
                     <button 
                       type="button" 
                       className="btn btn-primary"
@@ -366,24 +365,45 @@ const DetailPage = () => {
                           Posting...
                         </>
                       ) : (
-                        <>
-                          <i className="bi bi-send me-2"></i>Post Comment
-                        </>
+                        'Reply'
                       )}
                     </button>
                   </div>
                 </div>
 
                 {/* Comments List */}
-                {comments && comments.length > 0 && (
+                {comments.length > 0 && (
                   <div className="mb-3">
                     {comments.map((item) => (
-                      <div key={item.id || Math.random()} className='mb-3'>
-
-                        <small className="text-muted">
-                          <i className="bi bi-clock me-1"></i>
-                          {item.created_at && formatTime(item.created_at)}
-                        </small>
+                      <div key={item.id} className='mb-3'>
+                        <div className="d-flex align-items-center mb-1">
+                          {item.profiles ? (
+                            <Link
+                              to={`/purpleit/profile/${item.profiles.id}`}
+                              className="d-flex align-items-center text-decoration-none"
+                            >
+                              {item.profiles.avatar_url ? (
+                                <img
+                                  src={item.profiles.avatar_url}
+                                  alt={item.profiles.username || 'User'}
+                                  className="post-author-avatar rounded-circle me-2"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <i className="bi bi-person-circle me-2 text-muted"></i>
+                              )}
+                              <small className="fw-semibold text-muted">{item.profiles.username || 'User'}</small>
+                            </Link>
+                          ) : (
+                            <div className="d-flex align-items-center">
+                              <i className="bi bi-person-circle me-2 text-muted"></i>
+                              <small className="text-muted">Anonymous</small>
+                            </div>
+                          )}
+                          <small className="text-muted ms-2">
+                            · {item.created_at && formatTime(item.created_at)}
+                          </small>
+                        </div>
                         <p className="mb-1">{item.comment}</p>
                       </div>
                     ))}

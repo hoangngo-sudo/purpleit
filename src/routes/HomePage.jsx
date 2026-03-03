@@ -1,88 +1,155 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Post from "../components/Post";
 import { supabase } from '../utils/client';
+import { formatTime, isEdited } from '../utils/helpers';
 import { useOutletContext, Link } from "react-router-dom";
+import { useAuth } from '../contexts/useAuth';
+
+const PAGE_SIZE = 10;
 
 const HomePage = () => {
   const [searchInput, setSearchInput] = useOutletContext();
+  const { user } = useAuth();
   const [posts, setPosts] = useState([]);
-  const [filteredPosts, setFilteredPosts] = useState([]);
   const [sortBy, setSortBy] = useState('date');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [upvotedSet, setUpvotedSet] = useState(new Set());
 
+  const pageRef = useRef(0);
+  const observerRef = useRef(null);
+  const fetchVersionRef = useRef(0);
+  const isLoadingMoreRef = useRef(false);
+
+  // Fetch the set of post IDs the logged-in user has upvoted
+  useEffect(() => {
+    if (!user) { setUpvotedSet(new Set()); return; }
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('upvotes')
+          .select('post_id')
+          .eq('user_id', user.id);
+        setUpvotedSet(new Set((data || []).map((r) => r.post_id)));
+      } catch { setUpvotedSet(new Set()); }
+    })();
+  }, [user]);
+
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // Reset search on mount
   useEffect(() => {
     setSearchInput("");
-    fetchPosts().catch(console.error);
   }, [setSearchInput]);
 
-  useEffect(() => {
-    searchPosts();
-  }, [searchInput, posts]);
+  // Core fetch function — takes explicit args to avoid stale closures
+  const fetchPage = async (page, search, sort, isReset, version) => {
+    if (!isReset) {
+      if (isLoadingMoreRef.current) return;
+      isLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+    } else {
+      setIsLoading(true);
+    }
 
-  const fetchPosts = async () => {
-    setIsLoading(true);
     try {
-      const {data} = await supabase
-        .from('posts')
-        .select()
-        .order('created_at', { ascending: false });
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
 
-      setPosts(data || []);
-      setFilteredPosts(data || []);
-      setSortBy('date');
+      let query = supabase
+        .from('posts')
+        .select('*, profiles!posts_author_id_fkey(username, avatar_url)', { count: 'exact' });
+
+      // Server-side search
+      if (search) {
+        query = query.ilike('title', `%${search}%`);
+      }
+
+      // Server-side sort
+      if (sort === 'vote') {
+        query = query.order('upvotes', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      query = query.range(from, to);
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+
+      // Stale response guard — ignore if a newer fetch was triggered
+      if (fetchVersionRef.current !== version) return;
+
+      const newPosts = data || [];
+
+      if (isReset) {
+        setPosts(newPosts);
+      } else {
+        setPosts((prev) => [...prev, ...newPosts]);
+      }
+
+      setTotalCount(count || 0);
+      setHasMore(newPosts.length === PAGE_SIZE);
+      pageRef.current = page;
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
-      setIsLoading(false);
+      if (fetchVersionRef.current === version) {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+      isLoadingMoreRef.current = false;
     }
   };
 
-  const searchPosts = () => {
-    if (searchInput !== "") {
-      const filteredResults = posts.filter((item) =>
-        item.title.toLowerCase().includes(searchInput.toLowerCase())
-      );
-      setFilteredPosts(filteredResults);
-    } else {
-      setFilteredPosts(posts);
+  // Reset and fetch page 0 when search or sort changes
+  useEffect(() => {
+    const version = ++fetchVersionRef.current;
+    pageRef.current = 0;
+    setPosts([]);
+    setHasMore(true);
+    fetchPage(0, debouncedSearch, sortBy, true, version);
+  }, [debouncedSearch, sortBy]);
+
+  // Load next page
+  const loadMore = useCallback(() => {
+    if (isLoadingMoreRef.current || !hasMore) return;
+    fetchPage(pageRef.current + 1, debouncedSearch, sortBy, false, fetchVersionRef.current);
+  }, [debouncedSearch, sortBy, hasMore]);
+
+  // Sentinel callback ref — sets up IntersectionObserver on the sentinel element
+  const sentinelRef = useCallback((node) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
     }
+    if (!node) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observerRef.current.observe(node);
+  }, [loadMore]);
+
+  const handleSortByDate = () => {
+    if (sortBy !== 'date') setSortBy('date');
   };
 
-  const sortPostsByDate = () => {
-    const temp = [...filteredPosts].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-    setFilteredPosts(temp);
-    setSortBy('date');
-  };
-
-  const sortPostsByVote = () => {
-    const temp = [...filteredPosts].sort((a, b) => parseInt(b.upvotes) - parseInt(a.upvotes));
-    setFilteredPosts(temp);
-    setSortBy('vote');
-  };
-
-  const formatTime = (time) => {
-    let postedTime = (Date.now() - Date.parse(time))/1000;
-
-    if (postedTime <= 60)
-      return `${Math.floor(postedTime)} seconds`;
-    if (postedTime <= 60*60)
-      return `${Math.floor(postedTime/60)} minutes`;
-    if (postedTime <= 60*60*24)
-      return `${Math.floor(postedTime/(60*60))} hours`;
-    if (postedTime <= 60*60*24*7)
-      return `${Math.floor(postedTime/(60*60*24))} days`;
-    if (postedTime <= 60*60*24*30)
-      return `${Math.floor(postedTime/(60*60*24*7))} weeks`;
-    if (postedTime <= 60*60*24*7*52)
-      return `${Math.floor(postedTime/(60*60*24*30))} months`;
-    if (postedTime > 60*60*24*7*52)
-      return `${Math.floor(postedTime/(60*60*24*7*52))} years`;
-  };
-
-  const isEdited = (post) => {
-    // Check if updated_at exists and is different from created_at
-    return post.updated_at && 
-      new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
+  const handleSortByVote = () => {
+    if (sortBy !== 'vote') setSortBy('vote');
   };
 
   if (isLoading) {
@@ -107,7 +174,7 @@ const HomePage = () => {
               Community Posts
             </h1>
             <span className="badge bg-secondary fs-6">
-              {filteredPosts.length} post{filteredPosts.length !== 1 ? 's' : ''}
+              {totalCount} post{totalCount !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
@@ -118,20 +185,20 @@ const HomePage = () => {
         <div className="col-12">
           <div className="d-flex align-items-center">
             <span className="me-3 fw-semibold">
-              <i className="bi bi-sort-down me-2"></i>Sort by:
+              <i className="bi bi-filter-left me-2"></i>Sort by:
             </span>
             <div className="btn-group" role="group">
               <button 
                 type="button" 
                 className={`btn ${sortBy === 'date' ? 'btn-primary' : 'btn-outline-primary'}`}
-                onClick={sortPostsByDate}
+                onClick={handleSortByDate}
               >
                 <i className="bi bi-clock me-2"></i>Newest
               </button>
               <button 
                 type="button" 
                 className={`btn ${sortBy === 'vote' ? 'btn-primary' : 'btn-outline-primary'}`}
-                onClick={sortPostsByVote}
+                onClick={handleSortByVote}
               >
                 <i className="bi bi-arrow-up me-2"></i>Most Popular
               </button>
@@ -143,9 +210,9 @@ const HomePage = () => {
       {/* Posts List */}
       <div className="row">
         <div className="col-12">
-          {filteredPosts && filteredPosts.length > 0 ? (
-            <div>
-              {filteredPosts.map((item) => (
+          {posts.length > 0 ? (
+            <>
+              {posts.map((item) => (
                 <Post
                   key={item.user_id}
                   user_id={item.user_id}
@@ -153,9 +220,35 @@ const HomePage = () => {
                   title={item.title}
                   upvotes={item.upvotes}
                   isEdited={isEdited(item)}
+                  hasUpvoted={upvotedSet.has(item.user_id)}
+                  authorUsername={item.profiles?.username}
+                  authorAvatarUrl={item.profiles?.avatar_url}
+                  authorId={item.author_id}
                 />
               ))}
-            </div>
+
+              {/* Infinite scroll sentinel */}
+              {hasMore && (
+                <div
+                  ref={sentinelRef}
+                  className="d-flex justify-content-center py-4"
+                  style={{ minHeight: '1px' }}
+                >
+                  {isLoadingMore && (
+                    <div className="spinner-border spinner-border-sm text-primary" role="status">
+                      <span className="visually-hidden">Loading more...</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* End of list */}
+              {!hasMore && (
+                <div className="text-center py-4 text-muted">
+                  Made with love by Hoang
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-5">
               <div className="mb-3">

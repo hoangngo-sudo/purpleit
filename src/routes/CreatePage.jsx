@@ -1,55 +1,62 @@
 import { useState } from "react";
 import { supabase } from "../utils/client";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "../contexts/useToast";
+import { useAuth } from "../contexts/useAuth";
+import { uploadImage } from "../utils/helpers";
+import ImageDropZone from "../components/ImageDropZone";
 
 const CreatePage = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { user } = useAuth();
   const [inputs, setInputs] = useState({
-    'title': '',
-    'content': '',
-    'imageUrl': '',
-    'secret_key': ''
+    title: '',
+    content: '',
+    imageUrl: ''
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadMethod, setUploadMethod] = useState('url');
   const [isLoading, setIsLoading] = useState(false);
 
   const createPost = async (e) => {
     e.preventDefault();
     
     if (!inputs.title.trim()) {
-      alert("Please enter a title for your post.");
+      showToast({ message: 'Please enter a title for your post.', type: 'error' });
       return;
     }
 
     setIsLoading(true);
     
     try {
+      let finalImageUrl = inputs.imageUrl;
+
+      // If user chose to upload a file, upload it first
+      if (uploadMethod === 'file' && imageFile) {
+        finalImageUrl = await uploadImage(imageFile);
+      }
+
       const userId = Math.random().toString(36).substring(2, 15);
       const { data, error } = await supabase
         .from('posts')
         .insert({
           title: inputs.title, 
           content: inputs.content, 
-          imageUrl: inputs.imageUrl,
+          imageUrl: finalImageUrl,
           user_id: userId,
           upvotes: 0,
-          secret_key: inputs.secret_key
+          author_id: user.id
         })
         .select();
 
       if (error) throw error;
 
-      setInputs({
-        'title': '',
-        'content': '',
-        'imageUrl': '',
-        'secret_key': ''
-      });
-
-      alert("Post created successfully!");
+      showToast({ message: 'Post created successfully!', type: 'success' });
       navigate(`/purpleit/${data[0].user_id}`);
     } catch (error) {
       console.error('Error creating post:', error);
-      alert("Error creating post. Please try again.");
+      showToast({ message: 'Error creating post. Please try again.', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -65,8 +72,8 @@ const CreatePage = () => {
   return (
     <div className="container py-4">
       <div className="row justify-content-center">
-        <div className="col-12 col-md-8">
-          <div className="card shadow">
+        <div className="col-12">
+          <div className="card">
             <div className="card-header bg-primary text-white py-3">
               <h4 className="card-title m-0">
                 Create a New Post
@@ -103,50 +110,75 @@ const CreatePage = () => {
                   ></textarea>
                 </div>
 
+                {/* Image Upload Section */}
                 <div className="mb-3">
-                  <label htmlFor="imageUrl" className="form-label">Image URL</label>
-                  <input 
-                    type="url" 
-                    className="form-control" 
-                    id="imageUrl"
-                    name="imageUrl" 
-                    placeholder="https://example.com/image.jpg" 
-                    value={inputs["imageUrl"]} 
-                    onChange={handleChange}
-                  />
-                  <div className="form-text">
-                    <i className="bi bi-info-circle me-1"></i>
-                    Add an image URL to make your post more engaging
+                  <label className="form-label">Add Image</label>
+                  
+                  {/* Toggle between URL and File upload */}
+                  <div className="btn-group d-flex mb-3" role="group">
+                    <input
+                      type="radio"
+                      className="btn-check"
+                      name="uploadMethod"
+                      id="urlMethod"
+                      checked={uploadMethod === 'url'}
+                      onChange={() => setUploadMethod('url')}
+                    />
+                    <label className="btn btn-outline-primary" htmlFor="urlMethod">
+                      <i className="bi bi-link-45deg me-2"></i>Image URL
+                    </label>
+
+                    <input
+                      type="radio"
+                      className="btn-check"
+                      name="uploadMethod"
+                      id="fileMethod"
+                      checked={uploadMethod === 'file'}
+                      onChange={() => setUploadMethod('file')}
+                    />
+                    <label className="btn btn-outline-primary" htmlFor="fileMethod">
+                      <i className="bi bi-upload me-2"></i>Upload File
+                    </label>
                   </div>
+
+                  {/* URL Input */}
+                  {uploadMethod === 'url' && (
+                    <>
+                      <input 
+                        type="url" 
+                        className="form-control" 
+                        id="imageUrl"
+                        name="imageUrl" 
+                        placeholder="https://example.com/image.jpg" 
+                        value={inputs["imageUrl"]} 
+                        onChange={handleChange}
+                      />
+                      <div className="form-text">
+                        <i className="bi bi-info-circle me-1"></i>
+                        Add an image URL to make your post more engaging
+                      </div>
+                    </>
+                  )}
+
+                  {uploadMethod === 'file' && (
+                    <ImageDropZone
+                      file={imageFile}
+                      onFileSelect={setImageFile}
+                      onFileClear={() => setImageFile(null)}
+                      onError={(msg) => showToast({ message: msg, type: 'error' })}
+                      accentColor="primary"
+                    />
+                  )}
                 </div>
 
-                <div className="mb-3">
-                  <label htmlFor="secret_key" className="form-label">
-                    Secret Key (For Authentication)
-                  </label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    id="secret_key"
-                    name="secret_key"
-                    value={inputs["secret_key"]}
-                    onChange={handleChange}
-                    placeholder="Create a secret key to edit/delete your post later"
-                  />
-                  <div className="form-text">
-                    <i className="bi bi-shield-lock me-1"></i>
-                    Keep this secret! You&apos;ll need it to edit or delete your post
-                  </div>
-                </div>
-
-                <div className="d-grid gap-2 d-md-flex justify-content-md-end">
+                <div className="d-grid gap-1 d-md-flex justify-content-md-end">
                   <button 
                     type="button" 
                     className="btn btn-outline-secondary me-md-2"
                     onClick={() => navigate('/purpleit/')}
                     disabled={isLoading}
                   >
-                    <i className="bi bi-x-circle me-2"></i>Cancel
+                    Cancel
                   </button>
                   <button 
                     type="submit" 
@@ -159,9 +191,7 @@ const CreatePage = () => {
                         Creating...
                       </>
                     ) : (
-                      <>
-                        <i className="bi bi-check-circle me-2"></i>Post
-                      </>
+                      'Post'
                     )}
                   </button>
                 </div>

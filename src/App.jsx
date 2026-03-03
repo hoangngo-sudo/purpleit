@@ -1,9 +1,11 @@
 import { Link, Outlet } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from './contexts/useAuth';
 
 const App = () => {
   
   const [searchInput, setSearchInput] = useState("");
+  const { user, profile, loading } = useAuth();
 
   return (
     <div className="min-vh-100 bg-light">
@@ -14,26 +16,61 @@ const App = () => {
           </Link>
           
           <div className="d-flex flex-grow-1 justify-content-center mx-4">
-            <div className="input-group" style={{maxWidth: '400px'}}>
-              <span className="input-group-text">
-                <i className="bi bi-search"></i>
-              </span>
-              <input 
-                type="text" 
-                className="form-control" 
-                placeholder="Search posts here..." 
-                value={searchInput} 
-                onChange={(e) => setSearchInput(e.target.value)} 
+            <form
+              className="d-flex"
+              role="search"
+              style={{maxWidth: '400px', width: '100%'}}
+              onSubmit={(e) => e.preventDefault()}
+            >
+              <input
+                className="form-control me-2"
+                type="search"
+                placeholder="Search posts here..."
+                aria-label="Search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
-            </div>
+            </form>
           </div>
 
-          <div className="navbar-nav flex-row">
-            <Link 
-              className="btn btn-light text-primary fw-semibold" 
-              to="/purpleit/create">
-              <i className="bi bi-plus-circle me-2"></i>Create Post
-            </Link>
+          <div className="d-flex flex-row align-items-center gap-3">
+            {/* Auth-dependent UI */}
+            {!loading && (
+              <>
+                {user && profile ? (
+                  <>
+                    <Link 
+                      className="btn btn-light text-primary fw-semibold" 
+                      to="/purpleit/create">
+                      <i className="bi bi-plus-circle me-2"></i>Create Post
+                    </Link>
+                  <Link
+                    className="d-flex align-items-center"
+                    to={`/purpleit/profile/${user.id}`}
+                  >
+                    {profile.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt={profile.username}
+                        className="navbar-avatar rounded-circle"
+                        style={{ width: '36px', height: '36px' }}
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <i className="bi bi-person-circle text-white fs-4"></i>
+                    )}
+                  </Link>
+                  </>
+                ) : (
+                  <Link
+                    className="btn btn-outline-light fw-semibold"
+                    to="/purpleit/login"
+                  >
+                    <i className="bi bi-box-arrow-in-right me-1"></i>Log In
+                  </Link>
+                )}
+              </>
+            )}
           </div>
         </div>
       </nav>

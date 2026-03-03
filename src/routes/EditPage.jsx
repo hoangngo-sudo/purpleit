@@ -1,21 +1,29 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from '../utils/client';
+import { useToast } from '../contexts/useToast';
+import { useAuth } from '../contexts/useAuth';
+import { uploadImage, isPostOwner } from '../utils/helpers';
+import ImageDropZone from '../components/ImageDropZone';
 
 const EditPage = () => {
   const params = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const { user } = useAuth();
   const [post, setPost] = useState(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [inputs, setInputs] = useState({
-    'title': '',
-    'content': '',
-    'imageUrl': ''
+    title: '',
+    content: '',
+    imageUrl: ''
   });
-  const [secretKey, setSecretKey] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadMethod, setUploadMethod] = useState('url');
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  useEffect (() => {
+  useEffect(() => {
     fetchPost();
   }, [params.user_id]);
 
@@ -24,15 +32,20 @@ const EditPage = () => {
     try {
       const { data, error } = await supabase
         .from('posts')
-        .select('*') // Change this to fetch ALL fields including secret_key
+        .select('*')
         .eq('user_id', params.user_id)
         .single();
 
       if (error) {
         console.error('Error fetching post:', error);
-        alert("Error loading post. Please try again.");
+        showToast({ message: 'Error loading post. Please try again.', type: 'error' });
       } else if (data) {
-        setPost(data); // Store the complete post data including secret_key
+        if (!isPostOwner(data, user)) {
+          setAccessDenied(true);
+          setPost(data);
+          return;
+        }
+        setPost(data);
         setInputs({
           title: data.title || '',
           content: data.content || '',
@@ -41,7 +54,7 @@ const EditPage = () => {
       }
     } catch (error) {
       console.error('Error fetching post:', error);
-      alert("Error loading post. Please try again.");
+      showToast({ message: 'Error loading post. Please try again.', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -49,36 +62,37 @@ const EditPage = () => {
 
   const updatePost = async (e) => {
     e.preventDefault();
-    if (!post || secretKey !== post.secret_key) {
-      alert("Invalid secret key. Please try again.");
-      return;
-    }
 
     if (!inputs.title.trim()) {
-      alert("Please enter a title for your post.");
+      showToast({ message: 'Please enter a title for your post.', type: 'error' });
       return;
     }
 
     setIsUpdating(true);
 
     try {
+      let finalImageUrl = inputs.imageUrl;
+      if (uploadMethod === 'file' && imageFile) {
+        finalImageUrl = await uploadImage(imageFile);
+      }
+
       const { error } = await supabase
         .from('posts')
         .update({
-          title: inputs.title, 
-          content: inputs.content, 
-          imageUrl: inputs.imageUrl,
-          updated_at: new Date() // Add the current date as updated_at
+          title: inputs.title,
+          content: inputs.content,
+          imageUrl: finalImageUrl,
+          updated_at: new Date()
         })
         .eq('user_id', params.user_id);
 
       if (error) throw error;
 
-      alert("Post updated successfully!");
+      showToast({ message: 'Post updated successfully!', type: 'success' });
       navigate(`/purpleit/${params.user_id}`);
     } catch (error) {
       console.error('Error updating post:', error);
-      alert("Error updating post. Please try again.");
+      showToast({ message: 'Error updating post. Please try again.', type: 'error' });
     } finally {
       setIsUpdating(false);
     }
@@ -114,11 +128,23 @@ const EditPage = () => {
     );
   }
 
+  if (accessDenied) {
+    return (
+      <div className="container py-4">
+        <div className="text-center">
+          <h3 className="mb-3">Access Denied</h3>
+          <p className="text-muted">You can only edit your own posts.</p>
+          <Link to="/purpleit/" className="btn btn-primary"><i className="bi bi-arrow-left me-2"></i>Back to Home</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-4">
       <div className="row justify-content-center">
-        <div className="col-12 col-md-8">
-          <div className="card shadow">
+        <div className="col-12">
+          <div className="card">
             <div className="card-header bg-warning text-dark py-3">
               <h4 className="card-title m-0">
                 Edit Your Post
@@ -126,25 +152,6 @@ const EditPage = () => {
             </div>
             <div className="card-body">
               <form onSubmit={updatePost}>
-                {/* Authentication Section */}
-                <div className="bg-warning bg-opacity-10 border border-warning rounded p-3 mb-4">
-                  <h5 className="fw-semibold text-warning mb-2">
-                    Authentication Required
-                  </h5>
-                  <label htmlFor="secretKey" className="form-label text-warning">
-                    Enter your secret key to edit this post
-                  </label>
-                  <input
-                    type="password"
-                    className="form-control border-warning"
-                    id="secretKey"
-                    value={secretKey}
-                    onChange={(e) => setSecretKey(e.target.value)}
-                    placeholder="Secret key"
-                    required
-                  />
-                </div>
-
                 <div className="mb-3">
                   <label htmlFor="title" className="form-label">
                     Title <span className="text-danger">*</span>
@@ -174,31 +181,77 @@ const EditPage = () => {
                   ></textarea>
                 </div>
 
+                {/* Image Section */}
                 <div className="mb-4">
-                  <label htmlFor="imageUrl" className="form-label">Image URL</label>
-                  <input 
-                    type="url" 
-                    className="form-control" 
-                    id="imageUrl"
-                    name="imageUrl" 
-                    placeholder="https://example.com/image.jpg (Optional)" 
-                    value={inputs["imageUrl"]} 
-                    onChange={handleChange}
-                  />
-                  <div className="form-text">
-                    <i className="bi bi-info-circle me-2"></i>
-                    Add an image URL to make your post more engaging
+                  <label className="form-label">Image</label>
+
+                  {/* Toggle between URL and File upload */}
+                  <div className="btn-group d-flex mb-3" role="group">
+                    <input
+                      type="radio"
+                      className="btn-check"
+                      name="editUploadMethod"
+                      id="editUrlMethod"
+                      checked={uploadMethod === 'url'}
+                      onChange={() => { setUploadMethod('url'); setImageFile(null); }}
+                    />
+                    <label className="btn btn-outline-warning" htmlFor="editUrlMethod">
+                      <i className="bi bi-link-45deg me-2"></i>Image URL
+                    </label>
+
+                    <input
+                      type="radio"
+                      className="btn-check"
+                      name="editUploadMethod"
+                      id="editFileMethod"
+                      checked={uploadMethod === 'file'}
+                      onChange={() => setUploadMethod('file')}
+                    />
+                    <label className="btn btn-outline-warning" htmlFor="editFileMethod">
+                      <i className="bi bi-upload me-2"></i>Upload File
+                    </label>
                   </div>
+
+                  {/* URL Input */}
+                  {uploadMethod === 'url' && (
+                    <>
+                      <input
+                        type="url"
+                        className="form-control"
+                        id="imageUrl"
+                        name="imageUrl"
+                        placeholder="https://example.com/image.jpg (Optional)"
+                        value={inputs["imageUrl"]}
+                        onChange={handleChange}
+                      />
+                      <div className="form-text">
+                        <i className="bi bi-info-circle me-1"></i>
+                        Add an image URL to make your post more engaging
+                      </div>
+                    </>
+                  )}
+
+                  {/* File Upload (Drag & Drop) */}
+                  {uploadMethod === 'file' && (
+                    <ImageDropZone
+                      file={imageFile}
+                      onFileSelect={setImageFile}
+                      onFileClear={() => setImageFile(null)}
+                      onError={(msg) => showToast({ message: msg, type: 'error' })}
+                      currentImageUrl={post.imageUrl}
+                      accentColor="warning"
+                    />
+                  )}
                 </div>
 
-                <div className="d-grid gap-2 d-md-flex justify-content-md-end">
+                <div className="d-grid gap-1 d-md-flex justify-content-md-end">
                   <button 
                     type="button" 
                     className="btn btn-outline-secondary me-md-2"
                     onClick={() => navigate(`/purpleit/${params.user_id}`)}
                     disabled={isUpdating}
                   >
-                    <i className="bi bi-x-circle me-2"></i>Cancel
+                    Cancel
                   </button>
                   <button 
                     type="submit" 
@@ -211,9 +264,7 @@ const EditPage = () => {
                         Updating...
                       </>
                     ) : (
-                      <>
-                        <i className="bi bi-check-circle me-2"></i>Update Post
-                      </>
+                      'Update Post'
                     )}
                   </button>
                 </div>
