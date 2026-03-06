@@ -17,7 +17,7 @@ const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageU
 
   const validate = (f) => {
     if (!f.type.startsWith('image/')) return 'Please select an image file';
-    if (f.size > 5 * 1024 * 1024) return 'File size should be less than 5MB';
+    if (f.size > 50 * 1024 * 1024) return 'File size should be less than 50MB';
     return null;
   };
 
@@ -150,7 +150,7 @@ const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageU
               Drag &amp; drop an image here
             </p>
             <p className="text-muted small mb-0">
-              or click to browse &middot; PNG, JPG, GIF &middot; max 5 MB
+              or click to browse &middot; PNG, JPG, GIF &middot; max 50 MB
             </p>
           </div>
         )}
