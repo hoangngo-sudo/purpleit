@@ -247,10 +247,10 @@ const ProfilePage = () => {
                       </Link>
 
                       <small className="text-muted d-block mb-2">
-                        {profile?.username || 'User'} commented · {formatTime(item.created_at)}
+                        {profile?.username || 'User'} commented {formatTime(item.created_at)}
                       </small>
 
-                      <p className="mb-0">{item.comment}</p>
+                      <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{item.comment}</p>
                     </div>
                   </div>
                 ))

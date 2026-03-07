@@ -224,3 +224,41 @@ a:hover {
   border-bottom-color: var(--bs-primary);
   background-color: transparent;
 }
+
+/* ─── Comment thread lines ─── */
+.comment-thread-line-btn:focus-visible {
+  outline: 1px solid var(--indigo-300);
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+
+/* Branch connector: L-shaped curve from parent's vertical line to child avatar */
+.comment-thread-child {
+  position: relative;
+}
+
+.comment-thread-child::before {
+  content: '';
+  position: absolute;
+  left: -16.5px;                      /* align with parent gutter center */
+  top: 0;
+  width: 24px;                      /* reach into child avatar area */
+  height: 16px;                     /* drop to avatar vertical center */
+  border-left: 1px solid #dee2e6;
+  border-bottom: 1px solid #dee2e6;
+  border-bottom-left-radius: 10px;
+  pointer-events: none;
+}
+
+/* Reduce gutter width on small screens to prevent overflow */
+@media (max-width: 480px) {
+  .comment-thread .comment-gutter {
+    width: 28px !important;
+    min-width: 28px !important;
+  }
+
+  .comment-thread-child::before {
+    left: -14px;
+    width: 20px;
+  }
+}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../utils/client';
-import { formatTime, isEdited, isPostOwner } from '../utils/helpers';
+import { formatTime, isEdited, isPostOwner, buildCommentTree } from '../utils/helpers';
 import { useToast } from '../contexts/useToast';
 import { useAuth } from '../contexts/useAuth';
+import CommentThread from '../components/CommentThread';
 
 const DetailPage = () => {
   const params = useParams();
@@ -50,9 +51,9 @@ const DetailPage = () => {
     try {
       const {data, error} = await supabase
         .from('comments')
-        .select('id, comment, created_at, post_id, profiles!comments_author_id_fkey(id, username, avatar_url)')
+        .select('id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)')
         .eq('post_id', params.user_id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (error) console.error('Error fetching comments:', error);
       setComments(data || []);
@@ -133,6 +134,12 @@ const DetailPage = () => {
     }
   };
 
+  const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
+
+  const handleCommentAdded = (newComment) => {
+    setComments((prev) => [...prev, newComment]);
+  };
+
   const createComment = async () => {
     if (!comment.trim()) return;
     
@@ -144,7 +151,8 @@ const DetailPage = () => {
         .insert({
           post_id: params.user_id,
           comment: comment.trim(),
-          author_id: user?.id || null
+          author_id: user?.id || null,
+          parent_id: null,
         })
         .select();
       
@@ -157,8 +165,8 @@ const DetailPage = () => {
           ? { id: profile.id, username: profile.username, avatar_url: profile.avatar_url }
           : null,
       };
-      // Add new comment to the beginning of the array
-      setComments([newComment, ...comments]);
+      // Append to flat array; tree is rebuilt via useMemo
+      setComments((prev) => [...prev, newComment]);
       setComment("");
     } catch (error) {
       console.error('Error creating comment:', error);
@@ -371,41 +379,21 @@ const DetailPage = () => {
                   </div>
                 </div>
 
-                {/* Comments List */}
-                {comments.length > 0 && (
+                {/* Comments List (threaded) */}
+                {commentTree.length > 0 && (
                   <div className="mb-3">
-                    {comments.map((item) => (
-                      <div key={item.id} className='mb-3'>
-                        <div className="d-flex align-items-center mb-1">
-                          {item.profiles ? (
-                            <Link
-                              to={`/purpleit/profile/${item.profiles.id}`}
-                              className="d-flex align-items-center text-decoration-none"
-                            >
-                              {item.profiles.avatar_url ? (
-                                <img
-                                  src={item.profiles.avatar_url}
-                                  alt={item.profiles.username || 'User'}
-                                  className="post-author-avatar rounded-circle me-2"
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <i className="bi bi-person-circle me-2 text-muted"></i>
-                              )}
-                              <small className="fw-semibold text-muted">{item.profiles.username || 'User'}</small>
-                            </Link>
-                          ) : (
-                            <div className="d-flex align-items-center">
-                              <i className="bi bi-person-circle me-2 text-muted"></i>
-                              <small className="text-muted">Anonymous</small>
-                            </div>
-                          )}
-                          <small className="text-muted ms-2">
-                            · {item.created_at && formatTime(item.created_at)}
-                          </small>
-                        </div>
-                        <p className="mb-1">{item.comment}</p>
-                      </div>
+                    {commentTree.map((rootComment) => (
+                      <CommentThread
+                        key={rootComment.id}
+                        comment={rootComment}
+                        depth={0}
+                        postId={params.user_id}
+                        postAuthorId={post?.author_id}
+                        onCommentAdded={handleCommentAdded}
+                        user={user}
+                        profile={profile}
+                        showToast={showToast}
+                      />
                     ))}
                   </div>
                 )}

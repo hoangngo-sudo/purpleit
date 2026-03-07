@@ -74,3 +74,43 @@ export const uploadImage = async (imageFile) => {
 
   return publicUrl;
 };
+
+/**
+ * Builds a nested comment tree from a flat array of comment rows.
+ * Each node gets a `children` array and a `depth` number.
+ * Top-level comments (parent_id === null) are returned as roots.
+ * Each level is sorted by created_at ascending (chronological).
+ *
+ * @param {Array} flatComments - All comments for a post (flat Supabase rows).
+ * @returns {Array} Root CommentNode objects with nested `children[]` and `depth`.
+ */
+export const buildCommentTree = (flatComments) => {
+  const map = new Map();
+  const roots = [];
+
+  // First pass: index all comments with empty children arrays
+  for (const c of flatComments) {
+    map.set(c.id, { ...c, children: [], depth: 0 });
+  }
+
+  // Second pass: link parents and children
+  for (const node of map.values()) {
+    if (node.parent_id != null && map.has(node.parent_id)) {
+      const parent = map.get(node.parent_id);
+      node.depth = parent.depth + 1;
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  // Sort each level chronologically (oldest first)
+  const sortByDate = (a, b) => new Date(a.created_at) - new Date(b.created_at);
+  const sortTree = (nodes) => {
+    nodes.sort(sortByDate);
+    for (const n of nodes) sortTree(n.children);
+  };
+  sortTree(roots);
+
+  return roots;
+};
