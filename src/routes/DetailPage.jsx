@@ -141,6 +141,10 @@ const DetailPage = () => {
   };
 
   const createComment = async () => {
+    if (!user) {
+      showToast({ message: 'Log in to post comments.', type: 'warning' });
+      return;
+    }
     if (!comment.trim()) return;
     
     setIsCommenting(true);
@@ -151,7 +155,7 @@ const DetailPage = () => {
         .insert({
           post_id: params.user_id,
           comment: comment.trim(),
-          author_id: user?.id || null,
+          author_id: user.id,
           parent_id: null,
         })
         .select();
@@ -253,7 +257,7 @@ const DetailPage = () => {
 
           {/* Post Card */}
           <div className="card">
-            <div className="card-body">
+            <div className="card-body pb-0">
               {/* Post Meta */}
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <small className="text-muted">
@@ -350,33 +354,46 @@ const DetailPage = () => {
                   {comments.length} Comment{comments.length !== 1 ? 's' : ''}
                 </h5>
                 
-                {/* Add Comment - Styled like CreatePage */}
+                {/* Add Comment */}
                 <div className="mb-1">
-                  <textarea 
-                    className="form-control" 
-                    id="comment"
-                    rows="3" 
-                    placeholder="Write your comment here..." 
-                    value={comment} 
-                    onChange={(e) => setComment(e.target.value)}
-                  ></textarea>
-                  <div className="d-grid gap-1 d-md-flex justify-content-md-end mt-3">
-                    <button 
-                      type="button" 
-                      className="btn btn-primary"
-                      onClick={createComment}
-                      disabled={isCommenting || !comment.trim()}
-                    >
-                      {isCommenting ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                          Posting...
-                        </>
-                      ) : (
-                        'Reply'
-                      )}
-                    </button>
-                  </div>
+                  {user ? (
+                    <>
+                      <textarea 
+                        className="form-control" 
+                        id="comment"
+                        rows="3" 
+                        placeholder="Write your comment here..." 
+                        value={comment} 
+                        onChange={(e) => setComment(e.target.value)}
+                      ></textarea>
+                      <div className="d-grid gap-1 d-md-flex justify-content-md-end mt-3">
+                        <button 
+                          type="button" 
+                          className="btn btn-primary"
+                          onClick={createComment}
+                          disabled={isCommenting || !comment.trim()}
+                        >
+                          {isCommenting ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                              Posting...
+                            </>
+                          ) : (
+                            'Reply'
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-3 mb-3 border rounded bg-light">
+                      <p className="text-muted mb-2">
+                        <i className="me-2"></i>Log in to join the conversation.
+                      </p>
+                      <Link to="/purpleit/login" className="btn btn-outline-primary btn-sm">
+                        Log In
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 {/* Comments List (threaded) */}

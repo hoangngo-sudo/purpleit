@@ -27,6 +27,10 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
   };
 
   const submitReply = async () => {
+    if (!user) {
+      showToast({ message: 'Log in to reply to comments.', type: 'warning' });
+      return;
+    }
     if (!replyText.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
