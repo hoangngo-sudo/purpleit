@@ -41,14 +41,14 @@ flowchart TB
 
 - **Google OAuth authentication** Sign in with Google, user profiles, avatar display in navbar and post cards
 - **Community post board** Create posts with title, content, and images (URL or file upload); browse with infinite scroll pagination
-- **Server-side search & sort** Debounced search by title, sort by date or upvotes, all executed on Supabase
+- **Server-side search & sort** Debounced search by title (300ms), sort by date or upvotes, all executed on Supabase
 - **Toggle upvotes** Upvote/un-upvote posts with optimistic UI; server-authoritative state via Supabase RPC
-- **Threaded comments** Comment on posts with author attribution; anonymous comments supported for logged-out users
+- **Threaded comments** Nested replies up to 5 levels deep with collapsible threads, visual connector lines, inline reply forms, and OP badges for post author comments
 - **User profiles** Tabbed activity view showing posts, comments, and upvoted content
-- **Author-based ownership** Only post owners can edit/delete; RLS-enforced permissions
+- **Author-based ownership** Only post owners can edit/delete; multi-layer auth guards (route, component, action, server)
 - **Protected routes** Create and Edit pages require authentication; automatic redirect with toast notification
-- **Image uploads** Drag-and-drop zone with preview, or paste external URL; stored in Supabase Storage
-- **Toast notifications** Context-based system with animated entry/exit for all user feedback
+- **Image uploads** Drag-and-drop zone with preview (50MB max), or paste external URL; stored in Supabase Storage
+- **Toast notifications** Context-based system with animated entry/exit (success, error, info types)
 - **Responsive design** Bootstrap 5 with custom indigo color scheme and Inter font
 
 ## Tech Stack
@@ -73,12 +73,12 @@ graph TD
         PROVIDERS["AuthProvider → ToastProvider<br/>→ BrowserRouter"]
         APP["App.jsx<br/>Layout + navbar"]
         ROUTES["Route Components<br/>HomePage, DetailPage, etc."]
-        COMPONENTS["Shared Components<br/>Post, ImageDropZone, ProtectedRoute"]
+        COMPONENTS["Shared Components<br/>Post, CommentThread,<br/>ImageDropZone, ProtectedRoute"]
     end
 
     subgraph "Utilities"
         CLIENT["client.js<br/>Supabase singleton"]
-        HELPERS["helpers.js<br/>formatTime, uploadImage, etc."]
+        HELPERS["helpers.js<br/>formatTime, uploadImage,<br/>buildCommentTree"]
     end
 
     MAIN --> PROVIDERS
@@ -144,6 +144,7 @@ npm run deploy
 │   │   └── ProfilePage.jsx   # User profile with tabs
 │   ├── components/
 │   │   ├── Post.jsx          # Post card component
+│   │   ├── CommentThread.jsx # Recursive threaded comments
 │   │   ├── ProtectedRoute.jsx# Auth guard wrapper
 │   │   └── ImageDropZone.jsx # Drag-drop upload zone
 │   ├── contexts/
@@ -174,6 +175,7 @@ graph LR
     HomePage -->|"props"| Post["Post.jsx"]
     HomePage -->|"SELECT posts<br/>+ profiles join"| DB[(Supabase)]
 
+    DetailPage -->|"buildCommentTree()"| CommentThread["CommentThread.jsx<br/>(recursive)"]
     DetailPage -->|"RPC toggle_upvote"| DB
     DetailPage -->|"comments CRUD"| DB
 
@@ -218,6 +220,8 @@ erDiagram
         text post_id FK "References posts.user_id"
         text comment "Comment text content"
         uuid author_id FK "References profiles.id (nullable)"
+        int parent_id FK "References comments.id for threading"
+        bool is_deleted "Soft delete preserves thread structure"
         timestamptz created_at "Comment timestamp"
     }
     upvotes {
@@ -233,7 +237,7 @@ erDiagram
 |---|---|---|
 | `profiles` | User profile data | Populated via Supabase Auth trigger on Google sign-in |
 | `posts` | Community posts | `author_id` is nullable for legacy anonymous posts |
-| `comments` | Post comments | Supports both authenticated and anonymous comments |
+| `comments` | Threaded comments | `parent_id` enables nested replies; `is_deleted` preserves thread structure |
 | `upvotes` | User upvote tracking | Composite key on `(user_id, post_id)` prevents duplicate upvotes |
 
 **Supabase Storage:**
@@ -243,6 +247,33 @@ erDiagram
 
 **Supabase RPC Functions:**
 - **`toggle_upvote(p_post_id text)`** Atomically toggles upvote state and returns authoritative count
+
+## Threaded Comments
+
+```mermaid
+flowchart TD
+    subgraph "Data Layer"
+        DB[(comments table)]
+        DB -->|"SELECT with parent_id"| FLAT["Flat comment array"]
+    end
+    subgraph "Transformation"
+        FLAT -->|"buildCommentTree()"| TREE["Nested tree structure"]
+        TREE -->|"Each node has"| NODE["{ ...comment, children[], depth }"]
+    end
+    subgraph "Rendering"
+        NODE --> CT1["CommentThread depth 0"]
+        CT1 -->|"recursive"| CT2["CommentThread depth 1"]
+        CT2 -->|"recursive"| CT3["...up to depth 5"]
+    end
+```
+
+**Features:**
+- Recursive `CommentThread` component renders nested replies
+- Visual thread lines connect parent-child comments
+- Collapsible threads with reply count
+- Inline reply forms with auth guard
+- OP badge for post author comments
+- Soft-deleted comments show `[Comment Deleted]` preserving thread structure
 
 ## Auth Flow
 
