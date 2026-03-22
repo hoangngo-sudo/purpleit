@@ -355,7 +355,7 @@ const DetailPage = () => {
                 </h5>
                 
                 {/* Add Comment */}
-                <div className="mb-1">
+                <div className="mb-3">
                   {user ? (
                     <>
                       <textarea 
