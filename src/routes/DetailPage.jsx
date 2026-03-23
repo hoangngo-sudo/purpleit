@@ -28,6 +28,7 @@ const DetailPage = () => {
 
   const COMMENT_PAGE_SIZE = 10;
 
+  // Fetch post, reset comment state, and load the first comment page on slug/user change
   useEffect(() => {
     fetchPost();
     setRootComments([]);
@@ -38,6 +39,7 @@ const DetailPage = () => {
     fetchVotedState();
   }, [params.slug, user]);
 
+  // Fetch the post row by slug
   const fetchPost = async () => {
     setIsLoading(true);
     try {
@@ -58,6 +60,7 @@ const DetailPage = () => {
     }
   };
 
+  // Load a page of root comments; on page 0 also fetches all replies
   const loadComments = async (pageNum = 0) => {
     try {
       const from = pageNum * COMMENT_PAGE_SIZE;
@@ -101,6 +104,7 @@ const DetailPage = () => {
     }
   };
 
+  // Check whether the current user has already upvoted this post
   const fetchVotedState = async () => {
     if (!user) { setVoted(false); return; }
     try {
@@ -145,10 +149,12 @@ const DetailPage = () => {
     }
   };
 
+  // Close the delete confirmation modal
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
   };
 
+  // Delete the post and redirect to home
   const deletePost = async () => {
     if (!post) return;
 
@@ -173,8 +179,10 @@ const DetailPage = () => {
     }
   };
 
+  // Merge loaded root comments and all replies into a nested tree for rendering
   const commentTree = useMemo(() => buildCommentTree([...rootComments, ...childComments]), [rootComments, childComments]);
 
+  // Optimistically append a new reply to the child comments list
   const handleCommentAdded = (newComment) => {
     setChildComments((prev) => [...prev, newComment]);
   };
@@ -201,7 +209,7 @@ const DetailPage = () => {
       
       if (error) throw error;
       
-      // Re-fetch from page 0 to include the new root comment
+      // Re-fetch page 0 so the new root comment is included in the sorted list
       loadComments(0);
       setComment("");
     } catch (error) {
@@ -244,7 +252,7 @@ const DetailPage = () => {
         <div className="modal d-block" tabIndex="-1" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
-              <div className="modal-header bg-danger text-white py-3">
+              <div className="modal-header bg-danger text-white py-2">
                 <h4 className="modal-title m-0">Delete Post</h4>
               </div>
               <div className="modal-body">
@@ -338,12 +346,12 @@ const DetailPage = () => {
               </div>
 
               {/* Post Title */}
-              <h1 className="h2 mb-3">{post.title}</h1>
+              <h1 className="h2 mb-3 text-break">{post.title}</h1>
 
               {/* Post Content */}
               {post.content && (
                 <div className="mb-4">
-                  <p className="text-muted mb-0" style={{whiteSpace: 'pre-wrap'}}>
+                  <p className="text-muted mb-0 text-break" style={{whiteSpace: 'pre-wrap'}}>
                     {post.content}
                   </p>
                 </div>
@@ -398,7 +406,7 @@ const DetailPage = () => {
                         value={comment} 
                         onChange={(e) => setComment(e.target.value)}
                       ></textarea>
-                      <div className="d-grid gap-1 d-md-flex justify-content-md-end mt-3">
+                      <div className="d-flex justify-content-end gap-2 mt-3">
                         <button 
                           type="button" 
                           className="btn btn-primary"
@@ -450,7 +458,7 @@ const DetailPage = () => {
                 {hasMoreComments && rootComments.length > 0 && (
                   <div className="text-center py-3">
                     <button
-                      className="btn btn-outline-primary btn-sm"
+                      className="btn btn-outline-primary"
                       onClick={() => loadComments(commentPage + 1)}
                     >
                       Load more comments ({totalRootCount - rootComments.length} remaining)

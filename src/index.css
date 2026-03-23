@@ -250,15 +250,33 @@ a:hover {
   pointer-events: none;
 }
 
-/* Reduce gutter width on small screens to prevent overflow */
-@media (max-width: 480px) {
+/* ─── Responsive: extra-small devices (< 576px) ─── */
+@media (max-width: 575.98px) {
+  /* Comment gutter reduction (replaces old 480px query) */
   .comment-thread .comment-gutter {
-    width: 28px !important;
-    min-width: 28px !important;
+    width: 34px !important;
+    min-width: 34px !important;
   }
 
   .comment-thread-child::before {
-    left: -14px;
+    left: -16px;
     width: 20px;
   }
+
+  /* Compact spacing for mobile */
+  .image-dropzone {
+    min-height: 120px !important;
+  }
+
+  /* Profile avatar scales down */
+  .profile-avatar,
+  .profile-avatar-placeholder {
+    width: 60px;
+    height: 60px;
+  }
+}
+
+/* ─── Responsive: small devices (576px – 767.98px) ─── */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  /* Moderate spacing adjustments for large phones */
 }

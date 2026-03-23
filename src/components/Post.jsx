@@ -43,7 +43,7 @@ const Post = ({ slug, createdAt, title, upvotes, isEdited, hasUpvoted, authorUse
               </div>
             )}
           </div>
-          <h5 className="card-title text-dark mb-0">{title}</h5>
+          <h5 className="card-title text-dark mb-0 text-break">{title}</h5>
         </div>
       </div>
     </Link>

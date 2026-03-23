@@ -23,10 +23,12 @@ const EditPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // Fetch post when the route slug changes
   useEffect(() => {
     fetchPost();
   }, [params.slug]);
 
+  // Load the post and pre-fill form inputs; block access if the user is not the author
   const fetchPost = async () => {
     setIsLoading(true);
     try {
@@ -60,6 +62,7 @@ const EditPage = () => {
     }
   };
 
+  // Persist title/content/image changes and navigate back to the post
   const updatePost = async (e) => {
     e.preventDefault();
 
@@ -72,6 +75,7 @@ const EditPage = () => {
 
     try {
       let finalImageUrl = inputs.imageUrl;
+      // If user chose to upload a file, upload it first
       if (uploadMethod === 'file' && imageFile) {
         finalImageUrl = await uploadImage(imageFile);
       }
@@ -109,7 +113,7 @@ const EditPage = () => {
     return (
       <div className="container py-4">
         <div className="d-flex justify-content-center">
-          <div className="spinner-border text-primary" role="status">
+          <div className="spinner-border text-white" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
         </div>
@@ -119,7 +123,7 @@ const EditPage = () => {
 
   if (!post) {
     return (
-      <div className="container py-4">
+      <div className="container py-4 text-white">
         <div className="text-center">
           <h3>Post not found</h3>
           <Link to="/purpleit/" className="btn btn-primary">Back to Home</Link>
@@ -130,10 +134,10 @@ const EditPage = () => {
 
   if (accessDenied) {
     return (
-      <div className="container py-4">
+      <div className="container py-4 text-white">
         <div className="text-center">
           <h3 className="mb-3">Access Denied</h3>
-          <p className="text-muted">You can only edit your own posts.</p>
+          <p className="text-white">You can only edit your own posts.</p>
           <Link to="/purpleit/" className="btn btn-primary"><i className="bi bi-arrow-left me-2"></i>Back to Home</Link>
         </div>
       </div>
@@ -141,11 +145,11 @@ const EditPage = () => {
   }
 
   return (
-    <div className="container py-4">
+    <div className="container py-4 text-white">
       <div className="row justify-content-center">
         <div className="col-12">
           <div className="card">
-            <div className="card-header bg-warning text-dark py-3">
+            <div className="card-header bg-warning text-white py-2">
               <h4 className="card-title m-0">
                 Edit Your Post
               </h4>
@@ -244,10 +248,10 @@ const EditPage = () => {
                   )}
                 </div>
 
-                <div className="d-grid gap-1 d-md-flex justify-content-md-end">
+                <div className="d-flex justify-content-end gap-2">
                   <button 
                     type="button" 
-                    className="btn btn-outline-secondary me-md-2"
+                    className="btn btn-outline-secondary"
                     onClick={() => navigate(`/purpleit/${params.slug}`)}
                     disabled={isUpdating}
                   >

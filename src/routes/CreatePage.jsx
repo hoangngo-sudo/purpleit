@@ -19,6 +19,7 @@ const CreatePage = () => {
   const [uploadMethod, setUploadMethod] = useState('url');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Upload image if needed, insert the new post row, and navigate to it
   const createPost = async (e) => {
     e.preventDefault();
     
@@ -74,7 +75,7 @@ const CreatePage = () => {
       <div className="row justify-content-center">
         <div className="col-12">
           <div className="card">
-            <div className="card-header bg-primary text-white py-3">
+            <div className="card-header bg-primary text-white py-2">
               <h4 className="card-title m-0">
                 Create a New Post
               </h4>
@@ -171,10 +172,10 @@ const CreatePage = () => {
                   )}
                 </div>
 
-                <div className="d-grid gap-1 d-md-flex justify-content-md-end">
+                <div className="d-flex justify-content-end gap-2">
                   <button 
                     type="button" 
-                    className="btn btn-outline-secondary me-md-2"
+                    className="btn btn-outline-secondary"
                     onClick={() => navigate('/purpleit/')}
                     disabled={isLoading}
                   >

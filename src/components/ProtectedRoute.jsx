@@ -8,6 +8,7 @@ const ProtectedRoute = ({ children }) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
+  // Redirect unauthenticated users to the login page
   useEffect(() => {
     if (!loading && !user) {
       showToast({ message: 'Please log in to continue.', type: 'info' });

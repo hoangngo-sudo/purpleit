@@ -85,7 +85,7 @@ const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageU
   return (
     <div>
       <div
-        className={`rounded-3 p-4 text-center position-relative ${borderColor} ${bgClass}`}
+        className={`image-dropzone rounded-3 p-4 text-center position-relative ${borderColor} ${bgClass}`}
         style={{
           border: '2px dashed',
           cursor: 'pointer',

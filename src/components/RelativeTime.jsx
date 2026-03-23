@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
 
+// Determine the next tick interval based on how old the timestamp is
 const getTickInterval = (time) => {
   const ageSeconds = (Date.now() - Date.parse(time)) / 1000;
   if (ageSeconds < 60) return 10_000;
@@ -12,6 +13,7 @@ const getTickInterval = (time) => {
 const RelativeTime = ({ time }) => {
   const [, forceUpdate] = useState(0);
 
+  // Schedule self-adjusting ticks so the displayed time stays accurate
   useEffect(() => {
     let timeoutId;
 

@@ -183,8 +183,8 @@ const HomePage = () => {
       {/* Sort Controls */}
       <div className="row mb-4">
         <div className="col-12">
-          <div className="d-flex align-items-center">
-            <span className="me-3 fw-semibold">
+          <div className="d-flex align-items-center flex-wrap gap-2">
+            <span className="fw-semibold">
               <i className="bi bi-filter-left me-2"></i>Sort by:
             </span>
             <div className="btn-group" role="group">

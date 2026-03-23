@@ -135,7 +135,7 @@ const ProfilePage = () => {
 
       <div className="card mb-4 border-0 bg-transparent">
         <div className="card-body p-4">
-          <div className="d-flex align-items-center">
+          <div className="d-flex align-items-center flex-wrap gap-3">
             <div className="profile-avatar-wrapper me-3">
               {profile.avatar_url ? (
                 <img
@@ -152,7 +152,7 @@ const ProfilePage = () => {
             </div>
 
             <div className="flex-grow-1">
-              <h3 className="fw-bold mb-1">{profile.username || 'Anonymous User'}</h3>
+              <h3 className="fw-bold mb-1 text-break">{profile.username || 'Anonymous User'}</h3>
               <small className="text-muted">
                 <i className="bi bi-calendar3 me-1"></i>
                 Member since {profile.created_at
@@ -176,7 +176,7 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      <ul className="nav nav-tabs mb-4">
+      <ul className="nav nav-tabs nav-fill mb-4">
         {tabs.map(tab => (
           <li className="nav-item" key={tab.key}>
             <button
