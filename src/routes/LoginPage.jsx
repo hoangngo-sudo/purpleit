@@ -58,7 +58,7 @@ const LoginPage = () => {
               <div className="text-center">
                 <small className="text-muted">
                   <i className="bi bi-shield-lock me-1"></i>
-                  I only collect your email address so dont worry :)
+                  I only collect your email address :)
                 </small>
               </div>
             </div>

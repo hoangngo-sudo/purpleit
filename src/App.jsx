@@ -41,10 +41,10 @@ const App = () => {
     }
     return (
       <Link
-        className="btn btn-outline-light btn-sm fw-semibold"
+        className="btn btn-outline-light fw-semibold"
         to="/purpleit/login"
       >
-        <i className="bi bi-box-arrow-in-right me-1"></i>Log In
+        <i className="bi bi-box-arrow-in-right me-2"></i>Log In
       </Link>
     );
   };
@@ -112,7 +112,7 @@ const App = () => {
                       className="btn btn-light text-primary fw-semibold"
                       to="/purpleit/create"
                     >
-                      <i className="bi bi-plus-circle me-1"></i>Create
+                      <i className="bi bi-plus-circle me-2"></i>Create
                     </Link>
                   )}
                   {renderAvatar()}

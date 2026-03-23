@@ -145,9 +145,8 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
               position: 'absolute',
               top: 28,    /* just below the 24px avatar + 4px gap */
               bottom: threadLineBottom,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 20,  /* wide hit area for clicking */
+              left: 0,
+              right: 0,   /* fill gutter width — centers the 1px line on a pixel boundary */
               background: 'none',
               border: 'none',
               padding: 0,

@@ -71,11 +71,9 @@ const CreatePage = () => {
   };
 
   return (
-    <div className="container py-4">
-      <div className="row justify-content-center">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header bg-primary text-white py-2">
+    <div>
+      <div className="card">
+        <div className="card-header bg-primary text-white py-2">
               <h4 className="card-title m-0">
                 Create a New Post
               </h4>
@@ -197,8 +195,6 @@ const CreatePage = () => {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
         </div>
       </div>
     </div>

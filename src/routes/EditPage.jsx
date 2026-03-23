@@ -111,7 +111,7 @@ const EditPage = () => {
 
   if (isLoading) {
     return (
-      <div className="container py-4">
+      <div className="py-4">
         <div className="d-flex justify-content-center">
           <div className="spinner-border text-white" role="status">
             <span className="visually-hidden">Loading...</span>
@@ -123,7 +123,7 @@ const EditPage = () => {
 
   if (!post) {
     return (
-      <div className="container py-4 text-white">
+      <div className="py-4">
         <div className="text-center">
           <h3>Post not found</h3>
           <Link to="/purpleit/" className="btn btn-primary">Back to Home</Link>
@@ -134,7 +134,7 @@ const EditPage = () => {
 
   if (accessDenied) {
     return (
-      <div className="container py-4 text-white">
+      <div className="py-4">
         <div className="text-center">
           <h3 className="mb-3">Access Denied</h3>
           <p className="text-white">You can only edit your own posts.</p>
@@ -145,11 +145,9 @@ const EditPage = () => {
   }
 
   return (
-    <div className="container py-4 text-white">
-      <div className="row justify-content-center">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header bg-warning text-white py-2">
+    <div>
+      <div className="card">
+        <div className="card-header bg-warning text-white py-2">
               <h4 className="card-title m-0">
                 Edit Your Post
               </h4>
@@ -273,8 +271,6 @@ const EditPage = () => {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
         </div>
       </div>
     </div>

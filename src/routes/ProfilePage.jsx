@@ -162,16 +162,17 @@ const ProfilePage = () => {
                     })
                   : 'Unknown'}
               </small>
+              {isOwnProfile && (
+                <div className="mt-2">
+                  <button
+                    className="btn btn-outline-danger btn-sm"
+                    onClick={handleSignOut}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
             </div>
-
-            {isOwnProfile && (
-              <button
-                className="btn btn-outline-danger btn-sm"
-                onClick={handleSignOut}
-              >
-                Sign Out
-              </button>
-            )}
           </div>
         </div>
       </div>
