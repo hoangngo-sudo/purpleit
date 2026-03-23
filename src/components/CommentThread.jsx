@@ -1,7 +1,7 @@
 import { useState, useRef, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../utils/client';
-import { formatTime } from '../utils/helpers';
+import RelativeTime from './RelativeTime';
 
 const MAX_DEPTH = 5;
 const GUTTER_WIDTH = 32; // avatar (24px) + gap (8px)
@@ -190,7 +190,7 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
             <small className="text-muted">Anonymous</small>
           )}
           <small className="text-muted ms-2">
-            {comment.created_at && formatTime(comment.created_at)}
+            {comment.created_at && <RelativeTime time={comment.created_at} />}
           </small>
         </div>
 

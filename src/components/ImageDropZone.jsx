@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 /**
  * A drag-and-drop image upload zone with click-to-browse fallback.
@@ -65,7 +65,17 @@ const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageU
     onFileSelect(selected);
   };
 
-  const previewUrl = file ? URL.createObjectURL(file) : null;
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   const borderColor = isDragOver
     ? `border-${accentColor}`

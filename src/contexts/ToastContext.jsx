@@ -11,18 +11,21 @@ let nextId = 0;
 const ICON_MAP = {
   success: 'bi-check-circle-fill',
   error: 'bi-exclamation-triangle-fill',
+  warning: 'bi-exclamation-triangle-fill',
   info: 'bi-info-circle-fill',
 };
 
 const BG_MAP = {
   success: 'text-bg-success',
   error: 'text-bg-danger',
+  warning: 'text-bg-warning',
   info: 'text-bg-primary',
 };
 
 const DEFAULT_DURATION = {
   success: 4000,
   error: 6000,
+  warning: 4000,
   info: 4000,
 };
 
@@ -51,7 +54,7 @@ const Toast = ({ toast, onStartClose, onClose }) => {
         <span className="flex-grow-1">{toast.message}</span>
         <button
           type="button"
-          className="btn-close btn-close-white ms-2"
+          className={`btn-close ${toast.type === 'warning' ? '' : 'btn-close-white'} ms-2`}
           aria-label="Close"
           onClick={() => onStartClose(toast.id)}
         />

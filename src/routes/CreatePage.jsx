@@ -37,14 +37,14 @@ const CreatePage = () => {
         finalImageUrl = await uploadImage(imageFile);
       }
 
-      const userId = Math.random().toString(36).substring(2, 15);
+      const slug = Math.random().toString(36).substring(2, 15);
       const { data, error } = await supabase
         .from('posts')
         .insert({
           title: inputs.title, 
           content: inputs.content, 
           imageUrl: finalImageUrl,
-          user_id: userId,
+          slug: slug,
           upvotes: 0,
           author_id: user.id
         })
@@ -53,7 +53,7 @@ const CreatePage = () => {
       if (error) throw error;
 
       showToast({ message: 'Post created successfully!', type: 'success' });
-      navigate(`/purpleit/${data[0].user_id}`);
+      navigate(`/purpleit/${data[0].slug}`);
     } catch (error) {
       console.error('Error creating post:', error);
       showToast({ message: 'Error creating post. Please try again.', type: 'error' });

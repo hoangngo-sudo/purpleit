@@ -1,6 +1,7 @@
 import { Link, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from './contexts/useAuth';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const App = () => {
   
@@ -78,7 +79,9 @@ const App = () => {
       <div className="container-fluid">
         <div className="row justify-content-center">
           <div className="col-12 col-lg-8 col-xl-6">
-            <Outlet context={[searchInput, setSearchInput]} />
+            <ErrorBoundary>
+              <Outlet context={[searchInput, setSearchInput]} />
+            </ErrorBoundary>
           </div>
         </div>
       </div>

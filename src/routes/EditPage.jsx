@@ -25,7 +25,7 @@ const EditPage = () => {
 
   useEffect(() => {
     fetchPost();
-  }, [params.user_id]);
+  }, [params.slug]);
 
   const fetchPost = async () => {
     setIsLoading(true);
@@ -33,7 +33,7 @@ const EditPage = () => {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
-        .eq('user_id', params.user_id)
+        .eq('slug', params.slug)
         .single();
 
       if (error) {
@@ -84,12 +84,12 @@ const EditPage = () => {
           imageUrl: finalImageUrl,
           updated_at: new Date()
         })
-        .eq('user_id', params.user_id);
+        .eq('slug', params.slug);
 
       if (error) throw error;
 
       showToast({ message: 'Post updated successfully!', type: 'success' });
-      navigate(`/purpleit/${params.user_id}`);
+      navigate(`/purpleit/${params.slug}`);
     } catch (error) {
       console.error('Error updating post:', error);
       showToast({ message: 'Error updating post. Please try again.', type: 'error' });
@@ -248,7 +248,7 @@ const EditPage = () => {
                   <button 
                     type="button" 
                     className="btn btn-outline-secondary me-md-2"
-                    onClick={() => navigate(`/purpleit/${params.user_id}`)}
+                    onClick={() => navigate(`/purpleit/${params.slug}`)}
                     disabled={isUpdating}
                   >
                     Cancel

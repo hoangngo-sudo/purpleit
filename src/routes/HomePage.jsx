@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Post from "../components/Post";
 import { supabase } from '../utils/client';
-import { formatTime, isEdited } from '../utils/helpers';
+import { isEdited } from '../utils/helpers';
 import { useOutletContext, Link } from "react-router-dom";
 import { useAuth } from '../contexts/useAuth';
 
@@ -214,13 +214,13 @@ const HomePage = () => {
             <>
               {posts.map((item) => (
                 <Post
-                  key={item.user_id}
-                  user_id={item.user_id}
-                  time={formatTime(item.created_at)}
+                  key={item.slug}
+                  slug={item.slug}
+                  createdAt={item.created_at}
                   title={item.title}
                   upvotes={item.upvotes}
                   isEdited={isEdited(item)}
-                  hasUpvoted={upvotedSet.has(item.user_id)}
+                  hasUpvoted={upvotedSet.has(item.slug)}
                   authorUsername={item.profiles?.username}
                   authorAvatarUrl={item.profiles?.avatar_url}
                   authorId={item.author_id}

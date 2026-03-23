@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../utils/client';
-import { formatTime, isEdited, isPostOwner, buildCommentTree } from '../utils/helpers';
+import { isEdited, isPostOwner, buildCommentTree } from '../utils/helpers';
 import { useToast } from '../contexts/useToast';
 import { useAuth } from '../contexts/useAuth';
 import CommentThread from '../components/CommentThread';
+import RelativeTime from '../components/RelativeTime';
 
 const DetailPage = () => {
   const params = useParams();
@@ -13,7 +14,11 @@ const DetailPage = () => {
   const { user, profile } = useAuth();
   const [post, setPost] = useState(null);
   const [comment, setComment] = useState("");
-  const [comments, setComments] = useState([]);
+  const [rootComments, setRootComments] = useState([]);
+  const [childComments, setChildComments] = useState([]);
+  const [commentPage, setCommentPage] = useState(0);
+  const [hasMoreComments, setHasMoreComments] = useState(true);
+  const [totalRootCount, setTotalRootCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpvoting, setIsUpvoting] = useState(false);
   const [voted, setVoted] = useState(false);
@@ -21,11 +26,17 @@ const DetailPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const COMMENT_PAGE_SIZE = 10;
+
   useEffect(() => {
     fetchPost();
-    fetchComments();
+    setRootComments([]);
+    setChildComments([]);
+    setCommentPage(0);
+    setHasMoreComments(true);
+    loadComments(0);
     fetchVotedState();
-  }, [params.user_id, user]);
+  }, [params.slug, user]);
 
   const fetchPost = async () => {
     setIsLoading(true);
@@ -33,7 +44,7 @@ const DetailPage = () => {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
-        .eq('user_id', params.user_id)
+        .eq('slug', params.slug)
         .maybeSingle();
 
       if (error) {
@@ -47,18 +58,46 @@ const DetailPage = () => {
     }
   };
 
-  const fetchComments = async () => {
+  const loadComments = async (pageNum = 0) => {
     try {
-      const {data, error} = await supabase
-        .from('comments')
-        .select('id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)')
-        .eq('post_id', params.user_id)
-        .order('created_at', { ascending: true });
+      const from = pageNum * COMMENT_PAGE_SIZE;
+      const to = from + COMMENT_PAGE_SIZE - 1;
 
-      if (error) console.error('Error fetching comments:', error);
-      setComments(data || []);
+      const { data: roots, count, error: rootsError } = await supabase
+        .from('comments')
+        .select(
+          'id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)',
+          { count: 'exact' }
+        )
+        .eq('post_id', params.slug)
+        .is('parent_id', null)
+        .order('created_at', { ascending: true })
+        .range(from, to);
+
+      if (rootsError) console.error('Error fetching root comments:', rootsError);
+
+      if (pageNum === 0) {
+        const { data: replies, error: repliesError } = await supabase
+          .from('comments')
+          .select(
+            'id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)'
+          )
+          .eq('post_id', params.slug)
+          .not('parent_id', 'is', null)
+          .order('created_at', { ascending: true });
+
+        if (repliesError) console.error('Error fetching replies:', repliesError);
+        setChildComments(replies || []);
+      }
+
+      setRootComments((prev) =>
+        pageNum === 0 ? (roots || []) : [...prev, ...(roots || [])]
+      );
+      setTotalRootCount(count || 0);
+      setHasMoreComments((roots || []).length === COMMENT_PAGE_SIZE);
+      setCommentPage(pageNum);
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error('Error loading comments:', error);
     }
   };
 
@@ -69,7 +108,7 @@ const DetailPage = () => {
         .from('upvotes')
         .select('post_id')
         .eq('user_id', user.id)
-        .eq('post_id', params.user_id)
+        .eq('post_id', params.slug)
         .maybeSingle();
       setVoted(!!data);
     } catch { setVoted(false); }
@@ -90,7 +129,7 @@ const DetailPage = () => {
     setPost((p) => ({ ...p, upvotes: optimisticCount }));
 
     try {
-      const { data, error } = await supabase.rpc('toggle_upvote', { p_post_id: params.user_id });
+      const { data, error } = await supabase.rpc('toggle_upvote', { p_post_id: params.slug });
       if (error) throw error;
       // Use server-authoritative values
       setVoted(data.has_upvoted);
@@ -119,7 +158,7 @@ const DetailPage = () => {
       const { error } = await supabase
         .from('posts')
         .delete()
-        .eq('user_id', params.user_id);
+        .eq('slug', params.slug);
 
       if (error) throw error;
 
@@ -134,10 +173,10 @@ const DetailPage = () => {
     }
   };
 
-  const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
+  const commentTree = useMemo(() => buildCommentTree([...rootComments, ...childComments]), [rootComments, childComments]);
 
   const handleCommentAdded = (newComment) => {
-    setComments((prev) => [...prev, newComment]);
+    setChildComments((prev) => [...prev, newComment]);
   };
 
   const createComment = async () => {
@@ -153,7 +192,7 @@ const DetailPage = () => {
       const { data, error } = await supabase
         .from('comments')
         .insert({
-          post_id: params.user_id,
+          post_id: params.slug,
           comment: comment.trim(),
           author_id: user.id,
           parent_id: null,
@@ -162,15 +201,8 @@ const DetailPage = () => {
       
       if (error) throw error;
       
-      // Attach the current user's profile so it renders immediately
-      const newComment = {
-        ...data[0],
-        profiles: profile
-          ? { id: profile.id, username: profile.username, avatar_url: profile.avatar_url }
-          : null,
-      };
-      // Append to flat array; tree is rebuilt via useMemo
-      setComments((prev) => [...prev, newComment]);
+      // Re-fetch from page 0 to include the new root comment
+      loadComments(0);
       setComment("");
     } catch (error) {
       console.error('Error creating comment:', error);
@@ -261,7 +293,7 @@ const DetailPage = () => {
               {/* Post Meta */}
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <small className="text-muted">
-                  <i className="bi bi-clock me-2"></i>Posted {formatTime(post.created_at)}
+                  <i className="bi bi-clock me-2"></i>Posted <RelativeTime time={post.created_at} />
                   {isEdited(post) && <span className="ms-1 fst-italic">(edited)</span>}
                 </small>
                 <div className="dropdown">
@@ -271,7 +303,7 @@ const DetailPage = () => {
                   <ul className="dropdown-menu">
                     <li>
                       {isPostOwner(post, user) ? (
-                        <Link className="dropdown-item" to={`/purpleit/edit/${params.user_id}`}>
+                        <Link className="dropdown-item" to={`/purpleit/edit/${params.slug}`}>
                           <i className="bi bi-pencil me-2"></i>Edit Post
                         </Link>
                       ) : (
@@ -351,7 +383,7 @@ const DetailPage = () => {
               {/* Comments Section */}
               <div>
                 <h5 className="mb-3">
-                  {comments.length} Comment{comments.length !== 1 ? 's' : ''}
+                  {totalRootCount + childComments.length} Comment{(totalRootCount + childComments.length) !== 1 ? 's' : ''}
                 </h5>
                 
                 {/* Add Comment */}
@@ -404,7 +436,7 @@ const DetailPage = () => {
                         key={rootComment.id}
                         comment={rootComment}
                         depth={0}
-                        postId={params.user_id}
+                        postId={params.slug}
                         postAuthorId={post?.author_id}
                         onCommentAdded={handleCommentAdded}
                         user={user}
@@ -412,6 +444,17 @@ const DetailPage = () => {
                         showToast={showToast}
                       />
                     ))}
+                  </div>
+                )}
+
+                {hasMoreComments && rootComments.length > 0 && (
+                  <div className="text-center py-3">
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => loadComments(commentPage + 1)}
+                    >
+                      Load more comments ({totalRootCount - rootComments.length} remaining)
+                    </button>
                   </div>
                 )}
               </div>

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/client';
 import { useAuth } from '../contexts/useAuth';
-import { formatTime } from '../utils/helpers';
 import Post from '../components/Post';
+import RelativeTime from '../components/RelativeTime';
 
 const ProfilePage = () => {
   const { userId } = useParams();
@@ -61,7 +61,7 @@ const ProfilePage = () => {
         } else if (activeTab === 'comments') {
           const { data, error } = await supabase
             .from('comments')
-            .select('id, comment, created_at, post_id, posts!post_id(title, user_id)')
+            .select('id, comment, created_at, post_id, posts!post_id(title, slug)')
             .eq('author_id', userId)
             .order('created_at', { ascending: false });
           if (error) console.error('Error fetching comments:', error);
@@ -69,24 +69,15 @@ const ProfilePage = () => {
         } else if (activeTab === 'upvoted') {
           const { data, error } = await supabase
             .from('upvotes')
-            .select('post_id, created_at')
+            .select('posts(*, profiles!posts_author_id_fkey(username, avatar_url))')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
           if (error) {
-            console.error('Error fetching upvotes:', error);
+            console.error('Error fetching upvoted posts:', error);
             setUpvotedPosts([]);
-          } else if (data && data.length > 0) {
-            // Fetch the actual posts for each upvoted post_id
-            const postIds = data.map(u => u.post_id);
-            const { data: postsData, error: postsError } = await supabase
-              .from('posts')
-              .select('*, profiles!posts_author_id_fkey(username, avatar_url)')
-              .in('user_id', postIds);
-            if (postsError) console.error('Error fetching upvoted posts:', postsError);
-            setUpvotedPosts(postsData || []);
           } else {
-            setUpvotedPosts([]);
+            setUpvotedPosts((data || []).map(u => u.posts).filter(Boolean));
           }
         }
       } catch (err) {
@@ -211,9 +202,9 @@ const ProfilePage = () => {
               {posts.length > 0 ? (
                 posts.map(item => (
                   <Post
-                    key={item.user_id}
-                    user_id={item.user_id}
-                    time={formatTime(item.created_at)}
+                    key={item.slug}
+                    slug={item.slug}
+                    createdAt={item.created_at}
                     title={item.title}
                     upvotes={item.upvotes}
                     isEdited={item.updated_at && new Date(item.updated_at).getTime() > new Date(item.created_at).getTime()}
@@ -239,7 +230,7 @@ const ProfilePage = () => {
                   <div key={item.id} className="card mb-3">
                     <div className="card-body">
                       <Link
-                        to={`/purpleit/${item.posts?.user_id || item.post_id}`}
+                        to={`/purpleit/${item.posts?.slug || item.post_id}`}
                         className="text-primary text-decoration-none fw-semibold d-block mb-1"
                       >
                         <i className="bi bi-chat-quote me-1"></i>
@@ -247,7 +238,7 @@ const ProfilePage = () => {
                       </Link>
 
                       <small className="text-muted d-block mb-2">
-                        {profile?.username || 'User'} commented {formatTime(item.created_at)}
+                        {profile?.username || 'User'} commented <RelativeTime time={item.created_at} />
                       </small>
 
                       <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>{item.comment}</p>
@@ -268,9 +259,9 @@ const ProfilePage = () => {
               {upvotedPosts.length > 0 ? (
                 upvotedPosts.map(item => (
                   <Post
-                    key={item.user_id}
-                    user_id={item.user_id}
-                    time={formatTime(item.created_at)}
+                    key={item.slug}
+                    slug={item.slug}
+                    createdAt={item.created_at}
                     title={item.title}
                     upvotes={item.upvotes}
                     isEdited={item.updated_at && new Date(item.updated_at).getTime() > new Date(item.created_at).getTime()}

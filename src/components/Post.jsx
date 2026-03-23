@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
+import RelativeTime from './RelativeTime';
 
-const Post = ({ user_id, time, title, upvotes, isEdited, hasUpvoted, authorUsername, authorAvatarUrl, authorId }) => {
+const Post = ({ slug, createdAt, title, upvotes, isEdited, hasUpvoted, authorUsername, authorAvatarUrl, authorId }) => {
   return (
-    <Link to={`/purpleit/${user_id}`} className="text-decoration-none">
+    <Link to={`/purpleit/${slug}`} className="text-decoration-none">
       <div className="card mb-3 hover-shadow">
         <div className="card-body">
           <div className="d-flex justify-content-between align-items-start mb-2">
             <small className="text-muted">
-              <i className="bi bi-clock me-2"></i>Posted {time}
+              <i className="bi bi-clock me-2"></i>Posted <RelativeTime time={createdAt} />
               {isEdited && <span className="ms-1 fst-italic">(edited)</span>}
             </small>
             <span className={`badge rounded-pill ${hasUpvoted ? 'bg-success' : 'bg-primary'}`}>

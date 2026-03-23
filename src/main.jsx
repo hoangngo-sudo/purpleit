@@ -26,10 +26,10 @@ createRoot(document.getElementById('root')).render(
             <Route path="/purpleit/" element={<App />}>
               <Route index element={<HomePage />} />
               <Route path="create" element={<ProtectedRoute><CreatePage /></ProtectedRoute>} />
-              <Route path="edit/:user_id" element={<ProtectedRoute><EditPage /></ProtectedRoute>} />
+              <Route path="edit/:slug" element={<ProtectedRoute><EditPage /></ProtectedRoute>} />
               <Route path="login" element={<LoginPage />} />
               <Route path="profile/:userId" element={<ProfilePage />} />
-              <Route path=":user_id" element={<DetailPage />} />
+              <Route path=":slug" element={<DetailPage />} />
             </Route>
           </Routes>
         </Router>
