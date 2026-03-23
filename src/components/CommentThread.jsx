@@ -161,7 +161,7 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
                 display: 'block',
                 width: 0,
                 height: '100%',
-                margin: '0 auto',
+                marginLeft: '50%',
                 borderLeft: '1px solid #dee2e6',
               }}
             />

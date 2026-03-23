@@ -73,7 +73,7 @@ const CreatePage = () => {
   return (
     <div>
       <div className="card">
-        <div className="card-header bg-primary text-white py-2">
+        <div className="card-header bg-primary text-white d-flex align-items-center" style={{ minHeight: '54px' }}>
               <h4 className="card-title m-0">
                 Create a New Post
               </h4>

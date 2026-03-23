@@ -147,7 +147,7 @@ const EditPage = () => {
   return (
     <div>
       <div className="card">
-        <div className="card-header bg-warning text-white py-2">
+        <div className="card-header bg-warning text-white d-flex align-items-center" style={{ minHeight: '54px' }}>
               <h4 className="card-title m-0">
                 Edit Your Post
               </h4>
