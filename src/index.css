@@ -271,8 +271,8 @@ a:hover {
   /* Profile avatar scales down */
   .profile-avatar,
   .profile-avatar-placeholder {
-    width: 92px;
-    height: 92px;
+    width: 86px;
+    height: 86px;
   }
 }
 

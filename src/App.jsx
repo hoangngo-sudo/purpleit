@@ -81,7 +81,7 @@ const App = () => {
             <div className="d-flex align-items-center gap-3">
               {!loading && user && profile && (
                 <Link
-                  className="btn btn-light text-primary fw-semibold"
+                  className="btn btn-light text-primary"
                   to="/purpleit/create"
                 >
                   <i className="bi bi-plus-circle me-2"></i>Create Post
@@ -109,7 +109,7 @@ const App = () => {
                   </button>
                   {!loading && user && profile && (
                     <Link
-                      className="btn btn-light text-primary fw-semibold"
+                      className="btn btn-light text-primary"
                       to="/purpleit/create"
                     >
                       <i className="bi bi-plus-circle me-2"></i>Create
