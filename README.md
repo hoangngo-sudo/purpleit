@@ -6,7 +6,7 @@ A Reddit-style community post board built with React 18 + Vite. Features Google 
 
 ## Demo
 
-https://github.com/user-attachments/assets/a7d65327-f1da-40e8-ac16-aed48a87d614
+https://github.com/user-attachments/assets/2ed4bc40-da5e-451e-920a-3d603500ccea
 
 ## Architecture
 
