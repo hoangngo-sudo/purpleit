@@ -1,6 +1,6 @@
 # *purpleit* project
 
-A Reddit-style community post board built with React 18 + Vite. Features Google OAuth authentication, real-time upvoting, threaded comments, user profiles, and image uploads via Supabase backend.
+A Reddit-style community post board built with React 18 + Vite. Features Google OAuth authentication, optimistic upvoting, threaded comments, user profiles, and image uploads via Supabase backend.
 
 **Live site**: [https://hoangngo-sudo.github.io/purpleit/](https://hoangngo-sudo.github.io/purpleit/)
 
@@ -47,8 +47,15 @@ flowchart TB
 - **User profiles** Tabbed activity view showing posts, comments, and upvoted content
 - **Author-based ownership** Only post owners can edit/delete; multi-layer auth guards (route, component, action, server)
 - **Protected routes** Create and Edit pages require authentication; automatic redirect with toast notification
-- **Image uploads** Drag-and-drop zone with preview (50MB max), or paste external URL; stored in Supabase Storage
-- **Toast notifications** Context-based system with animated entry/exit (success, error, info types)
+- **Image uploads** Drag-and-drop zone with preview (50MB max), or enter external URL; stored in Supabase Storage
+- **Toast notifications** Context-based system with animated entry/exit via Motion (success, error, warning, info types)
+- **URL-based search** Search state lives in URL params via `useSearchParams` — shareable, bookmarkable, and browser back/forward aware
+- **Relative timestamps** Self-adjusting `RelativeTime` component with tiered update intervals (10s -> 30s -> 60s -> 5min as timestamps age)
+- **Resilient data fetching** `fetchWithRetry` wraps all Supabase reads with exponential-backoff retry (2 retries, 1s / 2s / 4s)
+- **Profile tab caching** Stale-while-revalidate cache (`profileCache.js`) with LRU eviction — instant tab switches, background refresh
+- **Server-side comment pagination** Two-query pattern: paginated root comments + all descendants fetched once on initial load; full tree built client-side via `buildCommentTree`
+- **Error boundaries** Per-route `ErrorBoundary` keeps the navbar visible on render errors
+- **Animations (Motion)** Micro-interactions via Motion for React with CSS easing curves — hover/tap feedback on post cards, animated toast enter/exit, smooth comment collapse/expand, drag-over feedback on image dropzone. Custom `Spinner` component uses Motion `rotate`. All animations respect `prefers-reduced-motion`
 - **Responsive design** Bootstrap 5 with custom indigo color scheme and Inter font
 
 ## Tech Stack
@@ -58,8 +65,9 @@ graph TD
     subgraph External
         SUPA["Supabase<br/>PostgreSQL + Auth + Storage"]
         GOOGLE["Google OAuth<br/>Authentication provider"]
-        BOOTSTRAP["Bootstrap 5.3<br/>cdn.jsdelivr.net"]
-        ICONS["Bootstrap Icons 1.13<br/>cdn.jsdelivr.net"]
+        BOOTSTRAP["Bootstrap 5.3<br/>CSS framework"]
+        ICONS["Bootstrap Icons 1.13<br/>Icon font"]
+        MOTION["Motion<br/>Animation library"]
     end
 
     subgraph "Build Tools"
@@ -73,12 +81,13 @@ graph TD
         PROVIDERS["AuthProvider → ToastProvider<br/>→ BrowserRouter"]
         APP["App.jsx<br/>Layout + navbar"]
         ROUTES["Route Components<br/>HomePage, DetailPage, etc."]
-        COMPONENTS["Shared Components<br/>Post, CommentThread,<br/>ImageDropZone, ProtectedRoute"]
+        COMPONENTS["Shared Components<br/>Post, CommentThread, Spinner,<br/>ImageDropZone, ProtectedRoute"]
     end
 
     subgraph "Utilities"
         CLIENT["client.js<br/>Supabase singleton"]
-        HELPERS["helpers.js<br/>formatTime, uploadImage,<br/>buildCommentTree"]
+        HELPERS["helpers.js<br/>fetchWithRetry, formatTime,<br/>uploadImage, buildCommentTree,<br/>isEdited, isPostOwner"]
+        CACHE["profileCache.js<br/>LRU tab cache"]
     end
 
     MAIN --> PROVIDERS
@@ -95,12 +104,13 @@ graph TD
 | Dependency | Purpose |
 |---|---|
 | React 18 | UI framework with StrictMode |
-| React Router 6 | Client-side routing with outlet context |
+| React Router 6 | Client-side routing with URL search params |
 | [@supabase/supabase-js](https://supabase.com/docs/reference/javascript) | Database, auth, and storage client |
 | [Bootstrap 5.3](https://getbootstrap.com/) | CSS/JS UI kit |
 | [Bootstrap Icons](https://icons.getbootstrap.com/) | Icon font |
+| [Motion](https://motion.dev/) | Animation library (formerly Framer Motion) |
 | Vite 7 | Build tool with HMR |
-| Github Pages | GitHub Pages deployment |
+| gh-pages | GitHub Pages deployment |
 
 ## Build
 
@@ -143,20 +153,26 @@ npm run deploy
 │   │   ├── LoginPage.jsx     # Google OAuth login
 │   │   └── ProfilePage.jsx   # User profile with tabs
 │   ├── components/
-│   │   ├── Post.jsx          # Post card component
+│   │   ├── Post.jsx          # Post card with hover/tap micro-interactions
 │   │   ├── CommentThread.jsx # Recursive threaded comments
+│   │   ├── Spinner.jsx       # Motion-based loading spinner
 │   │   ├── ProtectedRoute.jsx# Auth guard wrapper
-│   │   └── ImageDropZone.jsx # Drag-drop upload zone
+│   │   ├── ImageDropZone.jsx # Drag-drop upload zone
+│   │   ├── ErrorBoundary.jsx # Per-route error boundary
+│   │   └── RelativeTime.jsx  # Self-adjusting relative timestamp
 │   ├── contexts/
 │   │   ├── AuthContext.jsx   # Google OAuth provider
+│   │   ├── authContextValue.js # createContext export
 │   │   ├── useAuth.js        # Auth hook
 │   │   ├── ToastContext.jsx  # Toast notification provider
+│   │   ├── toastContextValue.js # createContext export
 │   │   └── useToast.js       # Toast hook
 │   └── utils/
 │       ├── client.js         # Supabase client singleton
-│       └── helpers.js        # Shared utilities
+│       ├── helpers.js        # fetchWithRetry, formatTime, uploadImage, buildCommentTree, isEdited, isPostOwner
+│       └── profileCache.js   # LRU profile tab cache (stale-while-revalidate)
 ├── public/
-│   └── netlify.toml          # SPA redirect config
+│   └── 404.html              # SPA redirect for GitHub Pages
 └── vite.config.js            # Base path: /purpleit/
 ```
 
@@ -169,7 +185,7 @@ graph LR
     ToastProvider --> Router["BrowserRouter"]
     Router --> App
 
-    App -->|"Outlet context"| HomePage
+    App -->|"URL search params"| HomePage
     App -->|"useAuth()"| AuthCtx["AuthContext"]
 
     HomePage -->|"props"| Post["Post.jsx"]
@@ -178,6 +194,9 @@ graph LR
     DetailPage -->|"buildCommentTree()"| CommentThread["CommentThread.jsx<br/>(recursive)"]
     DetailPage -->|"RPC toggle_upvote"| DB
     DetailPage -->|"comments CRUD"| DB
+
+    CommentThread -->|"Spinner"| Spinner["Spinner.jsx<br/>Motion rotate"]
+    Post -->|"motion.div"| MotionLib["Motion for React<br/>hover/tap animations"]
 
     CreatePage -->|"INSERT posts"| DB
     CreatePage -->|"upload"| Storage[(Storage)]
@@ -206,7 +225,7 @@ erDiagram
         timestamptz created_at "Account creation timestamp"
     }
     posts {
-        text user_id PK "Random generated post ID"
+        text slug PK "Random generated post ID"
         text title "Post title (required)"
         text content "Post body text (optional)"
         text imageUrl "Image URL or Storage path"
@@ -217,7 +236,7 @@ erDiagram
     }
     comments {
         int id PK "Auto-increment comment ID"
-        text post_id FK "References posts.user_id"
+        text post_id FK "References posts.slug"
         text comment "Comment text content"
         uuid author_id FK "References profiles.id (nullable)"
         int parent_id FK "References comments.id for threading"
@@ -226,7 +245,7 @@ erDiagram
     }
     upvotes {
         uuid user_id FK "References profiles.id"
-        text post_id FK "References posts.user_id"
+        text post_id FK "References posts.slug"
         timestamptz created_at "Upvote timestamp"
     }
 ```
