@@ -17,6 +17,11 @@
   --indigo-800: #4338ca;
   --indigo-900: #3730a3;
 
+  /* easing blueprint */
+  --ease-out-quad: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-out-cubic: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-in-out-quad: cubic-bezier(0.455, 0.03, 0.515, 0.955);
+
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -83,6 +88,24 @@ body {
     border-color: transparent;
 }
 
+/* Global button press feedback */
+.btn {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+  .btn:active {
+    transform: none;
+  }
+}
+
 /* Navbar styling with indigo */
 .bg-primary {
   background-color: var(--bs-primary) !important;
@@ -91,7 +114,7 @@ body {
 /* Fix navbar brand hover and active states */
 .navbar-dark .navbar-brand {
   color: white;
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 
 /* Badge styling */
@@ -101,12 +124,14 @@ body {
 
 /* Custom hover effects for post cards */
 .hover-shadow {
-  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transition: box-shadow 0.2s var(--ease-out-quad), transform 0.2s var(--ease-out-quad);
 }
 
-.hover-shadow:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .hover-shadow:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
 }
 
 /* Focus states */
@@ -120,17 +145,13 @@ body {
 a {
   text-decoration: none;
   color: inherit;
-  transition: color 0.2s ease-in-out;
+  transition: color 0.15s ease;
 }
 
-a:hover {
-  color: var(--bs-primary);
-}
-
-/* Spinner color */
-.spinner-border-primary,
-.text-primary .spinner-border {
-  color: var(--bs-primary) !important;
+@media (hover: hover) {
+  a:hover {
+    color: var(--bs-primary);
+  }
 }
 
 /* Navbar search input focus styling */
@@ -153,44 +174,21 @@ a:hover {
   color: #dc3545 !important;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(1rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Toast exit animation */
-@keyframes fadeOutDown {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(1rem);
-  }
-}
-
-/* ─── Navbar avatar ─── */
+/* Navbar avatar */
 .navbar-avatar {
   width: 28px;
   height: 28px;
   object-fit: cover;
 }
 
-/* ─── Post author avatar ─── */
+/* Post author avatar */
 .post-author-avatar {
   width: 24px;
   height: 24px;
   object-fit: cover;
 }
 
-/* ─── Profile page ─── */
+/* Profile page */
 .profile-avatar {
   width: 100px;
   height: 100px;
@@ -211,12 +209,7 @@ a:hover {
   border-bottom: 3px solid transparent;
   padding: 0.75rem 1.25rem;
   font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.nav-tabs .nav-link:hover {
-  color: var(--bs-primary);
-  border-bottom-color: var(--indigo-200);
+  transition: color 0.15s ease, border-bottom-color 0.15s ease;
 }
 
 .nav-tabs .nav-link.active {
@@ -225,7 +218,12 @@ a:hover {
   background-color: transparent;
 }
 
-/* ─── Comment thread lines ─── */
+@media (hover: hover) {
+  .nav-tabs .nav-link:hover {
+    color: var(--bs-primary);
+    border-bottom-color: var(--indigo-200);
+  }
+}
 .comment-thread-line-btn:focus-visible {
   outline: 1px solid var(--indigo-300);
   outline-offset: -2px;
@@ -250,7 +248,7 @@ a:hover {
   pointer-events: none;
 }
 
-/* ─── Responsive: extra-small devices (< 576px) ─── */
+/* Responsive: extra-small devices (< 576px) */
 @media (max-width: 575.98px) {
   /* Comment gutter reduction (replaces old 480px query) */
   .comment-thread .comment-gutter {
@@ -276,7 +274,26 @@ a:hover {
   }
 }
 
-/* ─── Responsive: small devices (576px – 767.98px) ─── */
+/* Responsive: small devices (576px – 767.98px) */
 @media (min-width: 576px) and (max-width: 767.98px) {
   /* Moderate spacing adjustments for large phones */
+}
+
+/* Focus visible: post cards */
+.hover-shadow:focus-visible {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

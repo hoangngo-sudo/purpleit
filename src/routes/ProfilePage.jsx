@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/client';
+import { fetchWithRetry } from '../utils/helpers';
+import { getProfileTab, setProfileTab } from '../utils/profileCache';
 import { useAuth } from '../contexts/useAuth';
 import Post from '../components/Post';
+import Spinner from '../components/Spinner';
+import ErrorBoundary from '../components/ErrorBoundary';
 import RelativeTime from '../components/RelativeTime';
 
 const ProfilePage = () => {
@@ -27,13 +31,14 @@ const ProfilePage = () => {
     const fetchProfile = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+        const { data } = await fetchWithRetry(() =>
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle()
+        );
 
-        if (error) console.error('Error fetching profile:', error);
         setProfile(data);
       } catch (err) {
         console.error('Error fetching profile:', err);
@@ -45,49 +50,71 @@ const ProfilePage = () => {
     fetchProfile();
   }, [userId]);
 
-  // Fetch tab data when tab changes
+  // Fetch tab data when tab changes (stale-while-revalidate from module cache)
   useEffect(() => {
-    const fetchTabData = async () => {
-      setTabLoading(true);
-      try {
-        if (activeTab === 'overview') {
-          const { data, error } = await supabase
-            .from('posts')
-            .select('*, profiles!posts_author_id_fkey(username, avatar_url)')
-            .eq('author_id', userId)
-            .order('created_at', { ascending: false });
-          if (error) console.error('Error fetching posts:', error);
-          setPosts(data || []);
-        } else if (activeTab === 'comments') {
-          const { data, error } = await supabase
-            .from('comments')
-            .select('id, comment, created_at, post_id, posts!post_id(title, slug)')
-            .eq('author_id', userId)
-            .order('created_at', { ascending: false });
-          if (error) console.error('Error fetching comments:', error);
-          setComments(data || []);
-        } else if (activeTab === 'upvoted') {
-          const { data, error } = await supabase
-            .from('upvotes')
-            .select('posts(*, profiles!posts_author_id_fkey(username, avatar_url))')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+    if (!userId) return;
 
-          if (error) {
-            console.error('Error fetching upvoted posts:', error);
-            setUpvotedPosts([]);
-          } else {
-            setUpvotedPosts((data || []).map(u => u.posts).filter(Boolean));
-          }
+    // Serve stale data from module cache immediately
+    const cached = getProfileTab(userId, activeTab);
+    if (cached) {
+      setPosts(cached.posts || []);
+      setComments(cached.comments || []);
+      setUpvotedPosts(cached.upvotedPosts || []);
+    }
+
+    let cancelled = false;
+
+    const fetchTabData = async () => {
+      if (!cached) setTabLoading(true);
+      try {
+        let tabPosts = [];
+        let tabComments = [];
+        let tabUpvoted = [];
+
+        if (activeTab === 'overview') {
+          const { data } = await fetchWithRetry(() =>
+            supabase
+              .from('posts')
+              .select('*, profiles!posts_author_id_fkey(username, avatar_url)')
+              .eq('author_id', userId)
+              .order('created_at', { ascending: false })
+          );
+          tabPosts = data || [];
+        } else if (activeTab === 'comments') {
+          const { data } = await fetchWithRetry(() =>
+            supabase
+              .from('comments')
+              .select('id, comment, created_at, post_id, posts!post_id(title, slug)')
+              .eq('author_id', userId)
+              .order('created_at', { ascending: false })
+          );
+          tabComments = data || [];
+        } else if (activeTab === 'upvoted') {
+          const { data } = await fetchWithRetry(() =>
+            supabase
+              .from('upvotes')
+              .select('posts(*, profiles!posts_author_id_fkey(username, avatar_url))')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false })
+          );
+          tabUpvoted = (data || []).map(u => u.posts).filter(Boolean);
         }
+
+        if (cancelled) return;
+
+        setPosts(tabPosts);
+        setComments(tabComments);
+        setUpvotedPosts(tabUpvoted);
+        setProfileTab(userId, activeTab, { posts: tabPosts, comments: tabComments, upvotedPosts: tabUpvoted });
       } catch (err) {
         console.error('Error fetching tab data:', err);
       } finally {
-        setTabLoading(false);
+        if (!cancelled) setTabLoading(false);
       }
     };
 
-    if (userId) fetchTabData();
+    fetchTabData();
+    return () => { cancelled = true; };
   }, [activeTab, userId]);
 
   const handleSignOut = async () => {
@@ -99,9 +126,7 @@ const ProfilePage = () => {
     return (
       <div className="container py-5">
         <div className="d-flex justify-content-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <Spinner className="text-primary" />
         </div>
       </div>
     );
@@ -128,7 +153,8 @@ const ProfilePage = () => {
   ];
 
   return (
-    <div className="container py-4">
+    <ErrorBoundary>
+      <div className="container py-4">
       <Link to="/purpleit/" className="btn btn-outline-secondary mb-3">
         <i className="bi bi-arrow-left me-2"></i>Back to Posts
       </Link>
@@ -192,9 +218,7 @@ const ProfilePage = () => {
 
       {tabLoading ? (
         <div className="d-flex justify-content-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <Spinner className="text-primary" />
         </div>
       ) : (
         <>
@@ -283,6 +307,7 @@ const ProfilePage = () => {
         </>
       )}
     </div>
+    </ErrorBoundary>
   );
 };
 

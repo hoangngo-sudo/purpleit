@@ -4,6 +4,33 @@ import { supabase } from './client';
  * Shared utility functions for the HobbyHub app.
  */
 
+function isRetryableError(error) {
+  if (error instanceof TypeError) return true;
+  if (error?.status >= 500 && error?.status < 600) return true;
+  return false;
+}
+
+/**
+ * Wraps a Supabase read query with retry logic for transient failures.
+ * Does NOT retry mutations (insert, update, delete, RPC).
+ *
+ * @param {Function} queryFn - A function that returns a Supabase query promise.
+ * @param {{ retries?: number, baseDelay?: number }} options
+ * @returns {Promise<{ data: any, error: any, count?: number }>}
+ */
+export async function fetchWithRetry(queryFn, { retries = 2, baseDelay = 1000 } = {}) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const result = await queryFn();
+      if (result.error) throw result.error;
+      return result;
+    } catch (err) {
+      if (attempt === retries || !isRetryableError(err)) throw err;
+      await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
+    }
+  }
+}
+
 /**
  * Converts a timestamp into a human-readable relative time string.
  *
@@ -51,17 +78,23 @@ export const isPostOwner = (post, user) =>
  * Uploads an image file to Supabase Storage (`post-images` bucket).
  *
  * @param {File} imageFile - The image File object to upload.
+ * @param {{ onProgress?: (pct:number)=>void }} [options]
  * @returns {Promise<string>} The public URL of the uploaded image.
  * @throws If the upload fails.
  */
-export const uploadImage = async (imageFile) => {
+export const uploadImage = async (imageFile, { onProgress } = {}) => {
   if (!imageFile) return null;
 
   const fileName = `${Date.now()}-${imageFile.name}`;
 
   const { error } = await supabase.storage
     .from('post-images')
-    .upload(fileName, imageFile);
+    .upload(fileName, imageFile, {
+      upsert: false,
+      ...(onProgress ? {
+        onUploadProgress: (ev) => onProgress(Math.round((ev.loaded / ev.total) * 100))
+      } : {})
+    });
 
   if (error) {
     console.error('Upload error:', error);
@@ -99,9 +132,10 @@ export const buildCommentTree = (flatComments) => {
       const parent = map.get(node.parent_id);
       node.depth = parent.depth + 1;
       parent.children.push(node);
-    } else {
+    } else if (node.parent_id == null) {
       roots.push(node);
     }
+    // else: orphan (parent not yet loaded via root pagination) — silently dropped
   }
 
   // Sort each level chronologically (oldest first)

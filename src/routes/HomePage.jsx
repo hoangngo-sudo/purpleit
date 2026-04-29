@@ -1,14 +1,17 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Post from "../components/Post";
+import Spinner from "../components/Spinner";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { supabase } from '../utils/client';
-import { isEdited } from '../utils/helpers';
-import { useOutletContext, Link } from "react-router-dom";
+import { isEdited, fetchWithRetry } from '../utils/helpers';
+import { useSearchParams, Link } from "react-router-dom";
 import { useAuth } from '../contexts/useAuth';
 
 const PAGE_SIZE = 10;
 
 const HomePage = () => {
-  const [searchInput, setSearchInput] = useOutletContext();
+  const [searchParams] = useSearchParams();
+  const searchInput = searchParams.get('q') || '';
   const { user } = useAuth();
   const [posts, setPosts] = useState([]);
   const [sortBy, setSortBy] = useState('date');
@@ -16,7 +19,6 @@ const HomePage = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [upvotedSet, setUpvotedSet] = useState(new Set());
 
   const pageRef = useRef(0);
@@ -38,19 +40,6 @@ const HomePage = () => {
     })();
   }, [user]);
 
-  // Debounce search input (300ms)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchInput);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
-
-  // Reset search on mount
-  useEffect(() => {
-    setSearchInput("");
-  }, [setSearchInput]);
-
   // Core fetch function — takes explicit args to avoid stale closures
   const fetchPage = async (page, search, sort, isReset, version) => {
     if (!isReset) {
@@ -65,25 +54,23 @@ const HomePage = () => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      let query = supabase
-        .from('posts')
-        .select('*, profiles!posts_author_id_fkey(username, avatar_url)', { count: 'exact' });
+      const { data, count, error } = await fetchWithRetry(() => {
+        let query = supabase
+          .from('posts')
+          .select('*, profiles!posts_author_id_fkey(username, avatar_url)', { count: 'exact' });
 
-      // Server-side search
-      if (search) {
-        query = query.ilike('title', `%${search}%`);
-      }
+        if (search) {
+          query = query.ilike('title', `%${search}%`);
+        }
 
-      // Server-side sort
-      if (sort === 'vote') {
-        query = query.order('upvotes', { ascending: false });
-      } else {
-        query = query.order('created_at', { ascending: false });
-      }
+        if (sort === 'vote') {
+          query = query.order('upvotes', { ascending: false });
+        } else {
+          query = query.order('created_at', { ascending: false });
+        }
 
-      query = query.range(from, to);
-
-      const { data, count, error } = await query;
+        return query.range(from, to);
+      });
       if (error) throw error;
 
       // Stale response guard — ignore if a newer fetch was triggered
@@ -117,14 +104,14 @@ const HomePage = () => {
     pageRef.current = 0;
     setPosts([]);
     setHasMore(true);
-    fetchPage(0, debouncedSearch, sortBy, true, version);
-  }, [debouncedSearch, sortBy]);
+    fetchPage(0, searchInput, sortBy, true, version);
+  }, [searchInput, sortBy]);
 
   // Load next page
   const loadMore = useCallback(() => {
     if (isLoadingMoreRef.current || !hasMore) return;
-    fetchPage(pageRef.current + 1, debouncedSearch, sortBy, false, fetchVersionRef.current);
-  }, [debouncedSearch, sortBy, hasMore]);
+    fetchPage(pageRef.current + 1, searchInput, sortBy, false, fetchVersionRef.current);
+  }, [searchInput, sortBy, hasMore]);
 
   // Sentinel callback ref — sets up IntersectionObserver on the sentinel element
   const sentinelRef = useCallback((node) => {
@@ -156,16 +143,15 @@ const HomePage = () => {
     return (
       <div className="container py-4">
         <div className="d-flex justify-content-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <Spinner className="text-primary" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container py-4">
+    <ErrorBoundary>
+      <div className="container py-4">
       {/* Header and Stats */}
       <div className="row mb-4">
         <div className="col-12">
@@ -235,9 +221,7 @@ const HomePage = () => {
                   style={{ minHeight: '1px' }}
                 >
                   {isLoadingMore && (
-                    <div className="spinner-border spinner-border-sm text-primary" role="status">
-                      <span className="visually-hidden">Loading more...</span>
-                    </div>
+                    <Spinner size="sm" className="text-primary" />
                   )}
                 </div>
               )}
@@ -271,6 +255,7 @@ const HomePage = () => {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 

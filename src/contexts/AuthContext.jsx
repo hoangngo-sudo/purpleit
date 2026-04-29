@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../utils/client';
+import { clearAllProfileCache } from '../utils/profileCache';
 import AuthContext from './authContextValue';
 
 export const AuthProvider = ({ children }) => {
@@ -74,6 +75,7 @@ export const AuthProvider = ({ children }) => {
     });
 
   const signOut = async () => {
+    clearAllProfileCache();
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);

@@ -1,6 +1,8 @@
 import { useAuth } from '../contexts/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import Spinner from '../components/Spinner';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const LoginPage = () => {
   const { user, loading, signInWithGoogle } = useAuth();
@@ -17,16 +19,15 @@ const LoginPage = () => {
     return (
       <div className="container py-5">
         <div className="d-flex justify-content-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <Spinner className="text-primary" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container py-5">
+    <ErrorBoundary>
+      <div className="container py-5">
       <div className="row justify-content-center">
           <div className="col-12 col-md-10 col-lg-7">
           <div className="card border-0 bg-transparent shadow-none">
@@ -66,6 +67,7 @@ const LoginPage = () => {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 

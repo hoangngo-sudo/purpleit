@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 
 /**
  * A drag-and-drop image upload zone with click-to-browse fallback.
@@ -9,11 +10,13 @@ import { useState, useRef, useEffect } from 'react';
  * @param {()=>void}            props.onFileClear     Called when the user removes the file
  * @param {(msg:string)=>void}  props.onError         Called with error message on invalid file
  * @param {string}              [props.currentImageUrl] Existing image URL to preview (edit page)
+ * @param {number|null}        [props.progress]       Upload progress 0–100 (null = no upload in flight)
  * @param {string}              [props.accentColor]    Bootstrap color name (default: 'primary')
  */
-const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageUrl, accentColor = 'primary' }) => {
+const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageUrl, progress, accentColor = 'primary' }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef(null);
+  const shouldReduceMotion = useReducedMotion();
 
   const validate = (f) => {
     if (!f.type.startsWith('image/')) return 'Please select an image file';
@@ -84,18 +87,26 @@ const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageU
 
   return (
     <div>
-      <div
+      <motion.div
         className={`image-dropzone rounded-3 p-4 text-center position-relative ${borderColor} ${bgClass}`}
         style={{
           border: '2px dashed',
           cursor: 'pointer',
-          transition: 'all 0.2s ease-in-out',
           minHeight: '160px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          willChange: 'transform',
         }}
+        animate={shouldReduceMotion ? undefined : {
+          scale: isDragOver ? 1.01 : 1,
+        }}
+        transition={
+          shouldReduceMotion
+            ? { duration: 0 }
+            : { duration: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }
+        }
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -164,7 +175,19 @@ const ImageDropZone = ({ file, onFileSelect, onFileClear, onError, currentImageU
             </p>
           </div>
         )}
-      </div>
+      </motion.div>
+
+      {progress != null && (
+        <div className="mt-2">
+          <div className="progress" role="progressbar" aria-label="Upload progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: '6px' }}>
+            <div
+              className="progress-bar progress-bar-striped progress-bar-animated"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <small className="text-muted mt-1 d-block text-center">{progress}% uploaded</small>
+        </div>
+      )}
     </div>
   );
 };

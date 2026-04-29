@@ -1,14 +1,15 @@
-import { Link, Outlet } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { Link, Outlet, useSearchParams } from 'react-router-dom';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from './contexts/useAuth';
-import ErrorBoundary from './components/ErrorBoundary';
 
 const App = () => {
-  
-  const [searchInput, setSearchInput] = useState("");
+
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchParams.get('q') || '');
   const { user, profile, loading } = useAuth();
   const mobileSearchRef = useRef(null);
+  const searchTimerRef = useRef(null);
 
   // Auto-focus the mobile search input when scene 2 opens
   useEffect(() => {
@@ -16,6 +17,25 @@ const App = () => {
       mobileSearchRef.current.focus();
     }
   }, [mobileSearchOpen]);
+
+  // Sync local state when URL changes externally (browser back/forward)
+  useEffect(() => {
+    setLocalSearch(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, []);
+
+  const handleSearchChange = useCallback((e) => {
+    const q = e.target.value;
+    setLocalSearch(q);  // instant UI update
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setSearchParams(q ? { q } : {}, { replace: true });
+    }, 300);
+  }, [setSearchParams]);
 
   const renderAvatar = () => {
     if (loading) return null;
@@ -72,8 +92,8 @@ const App = () => {
                   type="search"
                   placeholder="Search posts here..."
                   aria-label="Search"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
+                  value={localSearch}
+                  onChange={handleSearchChange}
                 />
               </form>
             </div>
@@ -139,8 +159,8 @@ const App = () => {
                     type="search"
                     placeholder="Search posts..."
                     aria-label="Search"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
+                    value={localSearch}
+                    onChange={handleSearchChange}
                   />
                 </form>
               </>
@@ -152,9 +172,7 @@ const App = () => {
       <div className="container-fluid">
         <div className="row justify-content-center">
           <div className="col-12 col-lg-8 col-xl-6 py-2 py-md-3 py-lg-4 px-2 px-md-3">
-            <ErrorBoundary>
-              <Outlet context={[searchInput, setSearchInput]} />
-            </ErrorBoundary>
+            <Outlet />
           </div>
         </div>
       </div>

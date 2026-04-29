@@ -1,9 +1,11 @@
 import { useState, useRef, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { supabase } from '../utils/client';
+import Spinner from './Spinner';
 import RelativeTime from './RelativeTime';
 
-const MAX_DEPTH = 5;
+const MAX_DEPTH = 8;
 const GUTTER_WIDTH = 32; // avatar (24px) + gap (8px)
 
 const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdded, user, profile, showToast }) => {
@@ -15,8 +17,10 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
   const gutterRef = useRef(null);
   const childrenRef = useRef(null);
   const [threadLineBottom, setThreadLineBottom] = useState(0);
+  const shouldReduceMotion = useReducedMotion();
 
-  const hasChildren = comment.children && comment.children.length > 0;
+  const children = comment.children || [];
+  const hasChildren = children.length > 0;
 
   const handleReplyClick = () => {
     if (!user) {
@@ -86,7 +90,7 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
     const observer = new ResizeObserver(measure);
     observer.observe(childrenRef.current);
     return () => observer.disconnect();
-  }, [hasChildren, isCollapsed, comment.children?.length]);
+  }, [hasChildren, isCollapsed, children.length]);
 
   // Avatar element (shared between deleted, profile, and anonymous states)
   const renderAvatar = () => {
@@ -109,7 +113,7 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
 
   return (
     <div className={`comment-thread${depth > 0 ? ' comment-thread-child' : ''}`} style={{ display: 'flex', alignItems: 'stretch' }}>
-      {/* ── Gutter column: avatar + thread line ── */}
+      {/* Gutter column: avatar + thread line */}
       <div
         className="comment-gutter"
         ref={gutterRef}
@@ -169,7 +173,7 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
         )}
       </div>
 
-      {/* ── Content column ── */}
+      {/* Content column */}
       <div style={{ flex: 1, minWidth: 0, paddingBottom: depth === 0 ? 8 : 4 }}>
         {/* Author name + timestamp row */}
         <div className="d-flex align-items-center mb-1" style={{ minHeight: 24 }}>
@@ -213,17 +217,18 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
             </button>
           )}
 
-          {/* Collapse toggle (text fallback — thread line is the primary toggle) */}
+          {/* Collapse toggle */}
           {hasChildren && (
             <button
               className="btn btn-sm btn-link text-muted text-decoration-none p-0"
               onClick={() => setIsCollapsed((prev) => !prev)}
               aria-expanded={!isCollapsed}
+              aria-label={isCollapsed ? `Show ${children.length} ${children.length === 1 ? 'reply' : 'replies'}` : 'Collapse replies'}
             >
               <i className={`bi ${isCollapsed ? 'bi-chevron-right' : 'bi-chevron-down'} me-1`}></i>
               <small>
                 {isCollapsed
-                  ? `${comment.children.length} ${comment.children.length === 1 ? 'reply' : 'replies'}`
+                  ? `${children.length} ${children.length === 1 ? 'reply' : 'replies'}`
                   : 'Collapse'}
               </small>
             </button>
@@ -231,61 +236,88 @@ const CommentThread = ({ comment, depth = 0, postId, postAuthorId, onCommentAdde
         </div>
 
         {/* Inline reply form */}
-        {showReplyForm && (
-          <div className="mb-1">
-            <textarea
-              className="form-control"
-              rows="3"
-              placeholder={`Reply to ${comment.profiles?.username || 'this comment'}...`}
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              aria-label={`Reply to ${comment.profiles?.username || 'comment'}`}
-              autoFocus
-            />
-            <div className="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
-              <button
-                className="btn btn-outline-secondary"
-                onClick={() => { setShowReplyForm(false); setReplyText(''); }}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={submitReply}
-                disabled={isSubmitting || !replyText.trim()}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Posting...
-                  </>
-                ) : (
-                  'Reply'
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Render children recursively (nested inside content column = automatic indent) */}
-        {hasChildren && !isCollapsed && (
-          <div className="comment-children" ref={childrenRef}>
-            {comment.children.map((child) => (
-              <CommentThread
-                key={child.id}
-                comment={child}
-                depth={depth + 1}
-                postId={postId}
-                postAuthorId={postAuthorId}
-                onCommentAdded={onCommentAdded}
-                user={user}
-                profile={profile}
-                showToast={showToast}
+        <AnimatePresence>
+          {showReplyForm && (
+            <motion.div
+              className="mb-1"
+              initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0 }
+                  : { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }
+              }
+              style={{ willChange: 'transform, opacity' }}
+            >
+              <textarea
+                className="form-control"
+                rows="3"
+                placeholder={`Reply to ${comment.profiles?.username || 'this comment'}...`}
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                aria-label={`Reply to ${comment.profiles?.username || 'comment'}`}
+                autoFocus
               />
-            ))}
-          </div>
-        )}
+              <div className="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+                <button
+                  className="btn btn-outline-secondary"
+                  onClick={() => { setShowReplyForm(false); setReplyText(''); }}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={submitReply}
+                  disabled={isSubmitting || !replyText.trim()}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Spinner size="sm" className="me-2" />
+                      Posting...
+                    </>
+                  ) : (
+                    'Reply'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Render children recursively */}
+        <AnimatePresence initial={false}>
+          {hasChildren && !isCollapsed && (
+            <motion.div
+              className="comment-children"
+              ref={childrenRef}
+              initial={shouldReduceMotion ? false : { opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0 }
+                  : { duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }
+              }
+              style={{ willChange: 'transform, opacity' }}
+            >
+              {children.map((child) => (
+                <CommentThread
+                  key={child.id}
+                  comment={child}
+                  depth={depth + 1}
+                  postId={postId}
+                  postAuthorId={postAuthorId}
+                  onCommentAdded={onCommentAdded}
+                  user={user}
+                  profile={profile}
+                  showToast={showToast}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>

@@ -5,6 +5,8 @@ import { useToast } from '../contexts/useToast';
 import { useAuth } from '../contexts/useAuth';
 import { uploadImage, isPostOwner } from '../utils/helpers';
 import ImageDropZone from '../components/ImageDropZone';
+import Spinner from '../components/Spinner';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const EditPage = () => {
   const params = useParams();
@@ -20,6 +22,7 @@ const EditPage = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [uploadMethod, setUploadMethod] = useState('url');
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -77,7 +80,7 @@ const EditPage = () => {
       let finalImageUrl = inputs.imageUrl;
       // If user chose to upload a file, upload it first
       if (uploadMethod === 'file' && imageFile) {
-        finalImageUrl = await uploadImage(imageFile);
+        finalImageUrl = await uploadImage(imageFile, { onProgress: setUploadProgress });
       }
 
       const { error } = await supabase
@@ -98,6 +101,7 @@ const EditPage = () => {
       console.error('Error updating post:', error);
       showToast({ message: 'Error updating post. Please try again.', type: 'error' });
     } finally {
+      setUploadProgress(null);
       setIsUpdating(false);
     }
   };
@@ -113,9 +117,7 @@ const EditPage = () => {
     return (
       <div className="py-4">
         <div className="d-flex justify-content-center">
-          <div className="spinner-border text-white" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <Spinner className="text-white" />
         </div>
       </div>
     );
@@ -145,8 +147,9 @@ const EditPage = () => {
   }
 
   return (
-    <div>
-      <div className="card">
+    <ErrorBoundary>
+      <div>
+        <div className="card">
         <div className="card-header bg-warning text-white d-flex align-items-center" style={{ minHeight: '54px' }}>
               <h4 className="card-title m-0">
                 Edit Your Post
@@ -238,9 +241,10 @@ const EditPage = () => {
                     <ImageDropZone
                       file={imageFile}
                       onFileSelect={setImageFile}
-                      onFileClear={() => setImageFile(null)}
+                      onFileClear={() => { setImageFile(null); setUploadProgress(null); }}
                       onError={(msg) => showToast({ message: msg, type: 'error' })}
                       currentImageUrl={post.imageUrl}
+                      progress={uploadProgress}
                       accentColor="warning"
                     />
                   )}
@@ -262,7 +266,7 @@ const EditPage = () => {
                   >
                     {isUpdating ? (
                       <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                        <Spinner size="sm" className="me-2" />
                         Updating...
                       </>
                     ) : (
@@ -274,6 +278,7 @@ const EditPage = () => {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 

@@ -5,6 +5,8 @@ import { useToast } from "../contexts/useToast";
 import { useAuth } from "../contexts/useAuth";
 import { uploadImage } from "../utils/helpers";
 import ImageDropZone from "../components/ImageDropZone";
+import Spinner from "../components/Spinner";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 const CreatePage = () => {
   const navigate = useNavigate();
@@ -17,6 +19,7 @@ const CreatePage = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [uploadMethod, setUploadMethod] = useState('url');
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Upload image if needed, insert the new post row, and navigate to it
@@ -35,7 +38,7 @@ const CreatePage = () => {
 
       // If user chose to upload a file, upload it first
       if (uploadMethod === 'file' && imageFile) {
-        finalImageUrl = await uploadImage(imageFile);
+        finalImageUrl = await uploadImage(imageFile, { onProgress: setUploadProgress });
       }
 
       const slug = Math.random().toString(36).substring(2, 15);
@@ -59,6 +62,7 @@ const CreatePage = () => {
       console.error('Error creating post:', error);
       showToast({ message: 'Error creating post. Please try again.', type: 'error' });
     } finally {
+      setUploadProgress(null);
       setIsLoading(false);
     }
   };
@@ -71,8 +75,9 @@ const CreatePage = () => {
   };
 
   return (
-    <div>
-      <div className="card">
+    <ErrorBoundary>
+      <div>
+        <div className="card">
         <div className="card-header bg-primary text-white d-flex align-items-center" style={{ minHeight: '54px' }}>
               <h4 className="card-title m-0">
                 Create a New Post
@@ -163,8 +168,9 @@ const CreatePage = () => {
                     <ImageDropZone
                       file={imageFile}
                       onFileSelect={setImageFile}
-                      onFileClear={() => setImageFile(null)}
+                      onFileClear={() => { setImageFile(null); setUploadProgress(null); }}
                       onError={(msg) => showToast({ message: msg, type: 'error' })}
+                      progress={uploadProgress}
                       accentColor="primary"
                     />
                   )}
@@ -186,7 +192,7 @@ const CreatePage = () => {
                   >
                     {isLoading ? (
                       <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                        <Spinner size="sm" className="me-2" />
                         Creating...
                       </>
                     ) : (
@@ -198,6 +204,7 @@ const CreatePage = () => {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 

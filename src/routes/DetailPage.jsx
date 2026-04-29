@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../utils/client';
-import { isEdited, isPostOwner, buildCommentTree } from '../utils/helpers';
+import { isEdited, isPostOwner, buildCommentTree, fetchWithRetry } from '../utils/helpers';
 import { useToast } from '../contexts/useToast';
 import { useAuth } from '../contexts/useAuth';
 import CommentThread from '../components/CommentThread';
+import Spinner from '../components/Spinner';
+import ErrorBoundary from '../components/ErrorBoundary';
 import RelativeTime from '../components/RelativeTime';
 
 const DetailPage = () => {
@@ -15,7 +17,7 @@ const DetailPage = () => {
   const [post, setPost] = useState(null);
   const [comment, setComment] = useState("");
   const [rootComments, setRootComments] = useState([]);
-  const [childComments, setChildComments] = useState([]);
+  const [allDescendants, setAllDescendants] = useState([]);
   const [commentPage, setCommentPage] = useState(0);
   const [hasMoreComments, setHasMoreComments] = useState(true);
   const [totalRootCount, setTotalRootCount] = useState(0);
@@ -32,7 +34,7 @@ const DetailPage = () => {
   useEffect(() => {
     fetchPost();
     setRootComments([]);
-    setChildComments([]);
+    setAllDescendants([]);
     setCommentPage(0);
     setHasMoreComments(true);
     loadComments(0);
@@ -43,11 +45,13 @@ const DetailPage = () => {
   const fetchPost = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('slug', params.slug)
-        .maybeSingle();
+      const { data, error } = await fetchWithRetry(() =>
+        supabase
+          .from('posts')
+          .select('*')
+          .eq('slug', params.slug)
+          .maybeSingle()
+      );
 
       if (error) {
         console.error('Error fetching post:', error);
@@ -66,31 +70,36 @@ const DetailPage = () => {
       const from = pageNum * COMMENT_PAGE_SIZE;
       const to = from + COMMENT_PAGE_SIZE - 1;
 
-      const { data: roots, count, error: rootsError } = await supabase
-        .from('comments')
-        .select(
-          'id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)',
-          { count: 'exact' }
-        )
-        .eq('post_id', params.slug)
-        .is('parent_id', null)
-        .order('created_at', { ascending: true })
-        .range(from, to);
-
-      if (rootsError) console.error('Error fetching root comments:', rootsError);
-
-      if (pageNum === 0) {
-        const { data: replies, error: repliesError } = await supabase
+      const { data: roots, count } = await fetchWithRetry(() =>
+        supabase
           .from('comments')
           .select(
-            'id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)'
+            'id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)',
+            { count: 'exact' }
           )
           .eq('post_id', params.slug)
-          .not('parent_id', 'is', null)
-          .order('created_at', { ascending: true });
+          .is('parent_id', null)
+          .order('created_at', { ascending: true })
+          .range(from, to)
+      );
 
-        if (repliesError) console.error('Error fetching replies:', repliesError);
-        setChildComments(replies || []);
+      // fetchWithRetry throws on error; errors propagate to the outer catch
+
+      // On page 0: fetch ALL non-root comments in a single unlimited query.
+      // This handles arbitrary nesting depth and removes all per-thread limits.
+      // On later pages: descendants are already loaded — only new roots need fetching.
+      if (pageNum === 0) {
+        const { data: descendants } = await fetchWithRetry(() =>
+          supabase
+            .from('comments')
+            .select(
+              'id, comment, created_at, post_id, parent_id, is_deleted, profiles!comments_author_id_fkey(id, username, avatar_url)'
+            )
+            .eq('post_id', params.slug)
+            .not('parent_id', 'is', null)
+            .order('created_at', { ascending: true })
+        );
+        setAllDescendants(descendants || []);
       }
 
       setRootComments((prev) =>
@@ -179,12 +188,19 @@ const DetailPage = () => {
     }
   };
 
-  // Merge loaded root comments and all replies into a nested tree for rendering
-  const commentTree = useMemo(() => buildCommentTree([...rootComments, ...childComments]), [rootComments, childComments]);
+  // Build the nested tree from loaded roots + all descendants.
+  // buildCommentTree silently drops descendants of unloaded roots (root pagination),
+  // so arbitrarily deep threads are handled without any per-thread limit.
+  const commentTree = useMemo(
+    () => buildCommentTree([...rootComments, ...allDescendants]),
+    [rootComments, allDescendants]
+  );
 
-  // Optimistically append a new reply to the child comments list
+  // Optimistically append a new reply so it appears immediately without a re-fetch
   const handleCommentAdded = (newComment) => {
-    setChildComments((prev) => [...prev, newComment]);
+    if (newComment.parent_id) {
+      setAllDescendants(prev => [...prev, newComment]);
+    }
   };
 
   const createComment = async () => {
@@ -197,15 +213,14 @@ const DetailPage = () => {
     setIsCommenting(true);
     
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('comments')
         .insert({
           post_id: params.slug,
           comment: comment.trim(),
           author_id: user.id,
           parent_id: null,
-        })
-        .select();
+        });
       
       if (error) throw error;
       
@@ -226,9 +241,7 @@ const DetailPage = () => {
     return (
       <div className="container py-4">
         <div className="d-flex justify-content-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+          <Spinner className="text-primary" />
         </div>
       </div>
     );
@@ -246,7 +259,8 @@ const DetailPage = () => {
   }
 
   return (
-    <div className="container py-4">
+    <ErrorBoundary>
+      <div className="container py-4">
       {/* Delete Modal */}
       {showDeleteModal && (
         <div className="modal d-block" tabIndex="-1" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
@@ -275,7 +289,7 @@ const DetailPage = () => {
                 >
                   {isDeleting ? (
                     <>
-                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      <Spinner size="sm" className="me-2" />
                       Deleting...
                     </>
                   ) : (
@@ -380,7 +394,7 @@ const DetailPage = () => {
                   disabled={isUpvoting}
                 >
                   {isUpvoting ? (
-                    <span className="spinner-border spinner-border-sm me-2"></span>
+                    <Spinner size="sm" className="me-2" />
                   ) : (
                     <i className={`me-1 ${voted ? 'bi bi-arrow-up-circle-fill' : 'bi bi-arrow-up'}`}></i>
                   )}
@@ -391,7 +405,7 @@ const DetailPage = () => {
               {/* Comments Section */}
               <div>
                 <h5 className="mb-3">
-                  {totalRootCount + childComments.length} Comment{(totalRootCount + childComments.length) !== 1 ? 's' : ''}
+                  {totalRootCount + allDescendants.length} Comment{(totalRootCount + allDescendants.length) !== 1 ? 's' : ''}
                 </h5>
                 
                 {/* Add Comment */}
@@ -415,7 +429,7 @@ const DetailPage = () => {
                         >
                           {isCommenting ? (
                             <>
-                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                              <Spinner size="sm" className="me-2" />
                               Posting...
                             </>
                           ) : (
@@ -450,6 +464,7 @@ const DetailPage = () => {
                         user={user}
                         profile={profile}
                         showToast={showToast}
+
                       />
                     ))}
                   </div>
@@ -471,6 +486,7 @@ const DetailPage = () => {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 
